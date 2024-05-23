@@ -1,0 +1,10 @@
+[package]
+name = "fluent-static"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+fluent-bundle = { workspace = true }
+unic-langid = { workspace = true }
+once_cell = { workspace = true }
+accept-language = { workspace = true }

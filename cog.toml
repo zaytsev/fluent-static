@@ -1,0 +1,24 @@
+tag_prefix = "v"
+ignore_merge_commits = true
+branch_whitelist = ["master", "main"]
+pre_bump_hooks = [
+  "cargo check",
+  "cargo test -- --test-threads 1",
+  "cargo build --release",
+  "cargo fmt --all",
+  "cargo set-version {{version}}",
+  "git add /Cargo.lock"
+]
+post_bump_hooks = [
+  "git push",
+  "git push --tags"
+]
+
+[commit_types]
+bump = { changelog_title = "Dependency updates"}
+
+[changelog]
+path = "CHANGELOG.md"
+authors = []
+
+[bump_profiles]
