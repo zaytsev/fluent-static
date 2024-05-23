@@ -33,7 +33,7 @@ name = "example"
 version = "0.1.0"
 dependencies = [
  "fluent-static",
- "fluent-static-generate",
+ "fluent-static-codegen",
 ]
 
 [[package]]
@@ -72,7 +72,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "fluent-static-generate"
+name = "fluent-static-codegen"
 version = "0.1.0"
 dependencies = [
  "accept-language",

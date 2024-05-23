@@ -22,7 +22,7 @@ Add the following to your `Cargo.toml` file:
 fluent-static = "0.1.0"  # Make sure to use the latest version
 
 [build-dependencies]
-fluent-static-generate = "0.1.0"
+fluent-static-codegen = "0.1.0"
 ```
 
 ## Usage
@@ -41,7 +41,7 @@ Create a `build.rs` file in your project root if it does not exist, and use the 
 use std::{env, fs, path::Path};
 
 pub fn main() {
-    let src = fluent_static_generate::build::generate("./l10n/", "en_US")
+    let src = fluent_static_codegen::build::generate("./l10n/", "en_US")
         .expect("Error generating fluent message bindings");
 
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");

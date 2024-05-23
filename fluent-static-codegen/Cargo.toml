@@ -1,5 +1,5 @@
 [package]
-name = "fluent-static-generate"
+name = "fluent-static-codegen"
 version = "0.1.0"
 edition = "2021"
 

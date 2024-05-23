@@ -7,4 +7,4 @@ edition = "2021"
 fluent-static = { path = "../fluent-static" }
 
 [build-dependencies]
-fluent-static-generate = { path = "../fluent-static-generate" }
+fluent-static-codegen = { path = "../fluent-static-codegen" }
