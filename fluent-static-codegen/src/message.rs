@@ -26,7 +26,7 @@ impl Var {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Message {
     name: String,
     vars: BTreeSet<Var>,
@@ -37,6 +37,10 @@ impl Message {
         let name = message.id.name.as_ref().to_string();
         let vars = extract_variables(message.value.as_ref())?;
         Ok(Self { name, vars })
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     pub fn function_ident(&self) -> Ident {

@@ -5,7 +5,7 @@ use fluent_syntax::ast;
 use proc_macro2::{Literal, TokenStream};
 use quote::{format_ident, quote};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
 };
@@ -64,6 +64,54 @@ fn generate_from_resources(
 
         let default_bundle = fluent_bundle_name(fallback_language);
         let format_message_fn = format_ident!("format_message");
+
+        let language_messages = bundle
+            .language_resources
+            .iter()
+            .map(|(lang, resource)| {
+                parse_content(resource).map(|messages| (lang.as_str(), messages))
+            })
+            .collect::<Result<HashMap<&str, HashSet<Message>>, Error>>()?;
+
+        if let Some(fallback_messages) = language_messages.get(fallback_language) {
+            let mut validation_result = vec![];
+            for (lang, msgs) in language_messages.iter() {
+                if *lang != fallback_language {
+                    let missing: Vec<String> = fallback_messages
+                        .difference(msgs)
+                        .map(|msg| msg.name().to_string())
+                        .collect();
+                    if !missing.is_empty() {
+                        validation_result.push((
+                            fallback_language.to_string(),
+                            lang.to_string(),
+                            missing,
+                        ));
+                    }
+                    let extra: Vec<String> = msgs
+                        .difference(fallback_messages)
+                        .map(|msg| msg.name().to_string())
+                        .collect();
+                    if !extra.is_empty() {
+                        validation_result.push((
+                            lang.to_string(),
+                            fallback_language.to_string(),
+                            extra,
+                        ));
+                    }
+                }
+            }
+            if !validation_result.is_empty() {
+                return Err(Error::MessageBundleValidationError {
+                    bundle: bundle.name.clone(),
+                    missing_messages: validation_result,
+                });
+            }
+        } else {
+            return Err(Error::FallbackLanguageNotFound(
+                fallback_language.to_string(),
+            ));
+        }
 
         let fns = if let Some(fallback_content) =
             bundle
@@ -138,7 +186,7 @@ fn generate_from_resources(
     Ok(result)
 }
 
-fn parse_content(content: &str) -> Result<Vec<Message>, Error> {
+fn parse_content(content: &str) -> Result<HashSet<Message>, Error> {
     let resource = fluent_syntax::parser::parse(content)
         .map_err(|(_, errors)| Error::FluentParserError { errors })?;
 

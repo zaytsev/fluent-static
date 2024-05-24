@@ -16,4 +16,13 @@ pub enum Error {
 
     #[error("Found unsupported feature {feature}: {id}")]
     UnsupportedFeature { feature: String, id: String },
+
+    #[error("No l10n resources found for fallback language {0}")]
+    FallbackLanguageNotFound(String),
+
+    #[error("Message bundle {bundle} integrity validation failed")]
+    MessageBundleValidationError {
+        bundle: String,
+        missing_messages: Vec<(String, String, Vec<String>)>,
+    },
 }
