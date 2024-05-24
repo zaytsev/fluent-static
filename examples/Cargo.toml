@@ -1,10 +1,11 @@
-[package]
-name = "example"
+[workspace]
+members = ["simple"]
+resolver = "2"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
-fluent-static = { path = "../fluent-static" }
-
-[build-dependencies]
-fluent-static-codegen = { path = "../fluent-static-codegen" }
+[workspace.dependencies]
+fluent-static = { version = "0.1.0", path = "../fluent-static" }
+fluent-static-codegen = { version = "0.1.0", path = "../fluent-static-codegen" }
