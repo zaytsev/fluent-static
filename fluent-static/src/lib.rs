@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Display};
+use std::{borrow::Cow, fmt::Display, ops::Deref};
 
 pub use accept_language;
 pub use once_cell;
@@ -12,9 +12,35 @@ pub mod fluent_bundle {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Message<'a>(Cow<'a, str>);
 
+impl<'a> Message<'a> {
+    pub fn new(value: Cow<'a, str>) -> Self {
+        Self(value)
+    }
+}
+
 impl<'a> Display for Message<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
+    }
+}
+
+impl<'a> Deref for Message<'a> {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
+
+impl<'a> PartialEq<str> for Message<'a> {
+    fn eq(&self, other: &str) -> bool {
+        &*self.0 == other
+    }
+}
+
+impl<'a> PartialEq<Message<'a>> for &str {
+    fn eq(&self, other: &Message<'a>) -> bool {
+        *self == &*other.0
     }
 }
 
@@ -27,6 +53,12 @@ impl<'a> maud::Render for Message<'a> {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AcceptedLanguage(String);
+
+impl AcceptedLanguage {
+    pub fn new(value: String) -> Self {
+        Self(value)
+    }
+}
 
 impl<'a> AsRef<str> for AcceptedLanguage {
     fn as_ref(&self) -> &str {

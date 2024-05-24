@@ -1,5 +1,5 @@
 fn main() {
-    println!("{}", l10n::messages::hello("en", "World!"));
+    println!("{}", l10n::messages::hello("en", "World!").unwrap());
 }
 
 mod l10n {
@@ -10,7 +10,7 @@ mod l10n {
 mod test {
     #[test]
     fn test_l10n() {
-        let actual = super::l10n::messages::hello("en", "foo");
+        let actual = super::l10n::messages::hello("en", "foo").unwrap();
         assert_eq!("Hello, \u{2068}foo\u{2069}", actual);
     }
 }

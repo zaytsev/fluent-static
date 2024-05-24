@@ -41,7 +41,7 @@ Create a `build.rs` file in your project root if it does not exist, and use the 
 use std::{env, fs, path::Path};
 
 pub fn main() {
-    let src = fluent_static_codegen::build::generate("./l10n/", "en_US")
+    let src = fluent_static_codegen::generate("./l10n/", "en_US")
         .expect("Error generating fluent message bindings");
 
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
@@ -57,7 +57,7 @@ You can now use the generated functions in your main application or other module
 
 ```rust
 fn main() {
-    println!("{}", l10n::messages::hello("en", "World!"));
+    println!("{}", l10n::messages::hello("en", "World!").unwrap());
 }
 
 mod l10n {
@@ -72,7 +72,7 @@ mod l10n {
 mod test {
     #[test]
     fn test_l10n() {
-        let actual = super::l10n::messages::hello("en", "foo");
+        let actual = super::l10n::messages::hello("en", "foo").unwrap();
         assert_eq!("Hello, \u{2068}foo\u{2069}", actual);
     }
 }

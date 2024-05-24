@@ -1,5 +1,7 @@
+use crate::{error::Error, message::Message};
+
 use convert_case::{Case, Casing};
-use fluent_syntax::ast::{self, Expression, InlineExpression, Message, Pattern, PatternElement};
+use fluent_syntax::ast;
 use proc_macro2::{Literal, TokenStream};
 use quote::{format_ident, quote};
 use std::{
@@ -8,26 +10,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use syn::Ident;
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    IoError(#[from] std::io::Error),
-
-    #[error(transparent)]
-    PathPrefixError(#[from] std::path::StripPrefixError),
-
-    #[error("Path contans invalid symbols")]
-    InvalidPath,
-
-    #[error("Error parsing fluent resource")]
-    FluentParserError {
-        errors: Vec<fluent_syntax::parser::ParserError>,
-    },
-
-    #[error("Found unsupported feature {feature}: {id}")]
-    UnsupportedFeature { feature: String, id: String },
-}
 
 #[derive(Debug, Clone)]
 struct MessageBundle {
@@ -81,6 +63,7 @@ fn generate_from_resources(
         });
 
         let default_bundle = fluent_bundle_name(fallback_language);
+        let format_message_fn = format_ident!("format_message");
 
         let fns = if let Some(fallback_content) =
             bundle
@@ -93,17 +76,19 @@ fn generate_from_resources(
                         None
                     }
                 }) {
-            generate_messages(fallback_language, fallback_content.as_str())?
+            parse_content(fallback_content.as_str())?
+                .iter()
+                .map(|msg| msg.function_code(&format_message_fn))
+                .collect()
         } else {
             vec![]
         };
 
         let mut module = quote! {
             pub mod #module_ident {
-                use std::borrow::Cow;
-
-                use fluent_static::fluent_bundle::{FluentBundle, FluentResource, FluentValue, FluentArgs};
+                use fluent_static::fluent_bundle::{FluentBundle, FluentResource, FluentValue, FluentArgs, FluentError};
                 use fluent_static::once_cell::sync::Lazy;
+                use fluent_static::Message;
 
                 static SUPPORTED_LANGUAGES: &[&str] = &[#(#supported_languages),*];
 
@@ -117,6 +102,18 @@ fn generate_from_resources(
                         }
                     }
                     & #default_bundle
+                }
+
+                fn #format_message_fn<'a, 'b>(lang_id: &str, message_id: &str, args: Option<&'a FluentArgs>) -> Result<Message<'b>, FluentError> {
+                    let bundle = get_bundle(lang_id.as_ref());
+                    let msg = bundle.get_message(message_id).expect("Message not found");
+                    let mut errors = vec![];
+                    let result = Message::new(bundle.format_pattern(&msg.value().unwrap(), args, &mut errors));
+                    if errors.is_empty() {
+                        Ok(result)
+                    } else {
+                        Err(errors.into_iter().next().unwrap())
+                    }
                 }
 
                 #(#fns)*
@@ -141,7 +138,7 @@ fn generate_from_resources(
     Ok(result)
 }
 
-fn generate_messages(_lang: &str, content: &str) -> Result<Vec<TokenStream>, Error> {
+fn parse_content(content: &str) -> Result<Vec<Message>, Error> {
     let resource = fluent_syntax::parser::parse(content)
         .map_err(|(_, errors)| Error::FluentParserError { errors })?;
 
@@ -155,108 +152,8 @@ fn generate_messages(_lang: &str, content: &str) -> Result<Vec<TokenStream>, Err
                 None
             }
         })
-        .map(|message| message_function(message))
+        .map(|message| Message::parse(message))
         .collect()
-}
-
-fn message_function<T: AsRef<str> + std::fmt::Debug>(
-    message: &Message<T>,
-) -> Result<TokenStream, Error> {
-    let message_id = message.id.name.as_ref();
-    let function_name = format_ident!("{}", message_id.to_case(Case::Snake));
-    let message_id_literal = Literal::string(message_id);
-
-    let mut fn_args: Vec<Ident> = vec![];
-    let mut msg_args: Vec<Literal> = vec![];
-
-    for variable in extract_variables(message.value.as_ref())? {
-        msg_args.push(Literal::string(variable.as_str()));
-        fn_args.push(format_ident!("{}", variable.to_case(Case::Snake)));
-    }
-
-    let message_args = if msg_args.is_empty() {
-        quote! {
-            let message_args = None;
-        }
-    } else {
-        let total_args = Literal::usize_unsuffixed(msg_args.len());
-        let mut args = vec![];
-        for (name, val) in msg_args.iter().zip(fn_args.iter()) {
-            args.push(quote! {
-                args.set(#name, #val);
-            });
-        }
-        quote! {
-            let mut args = FluentArgs::with_capacity(#total_args);
-            #(#args)*
-            let message_args = Some(&args);
-        }
-    };
-
-    Ok(quote! {
-        pub fn #function_name<'a, 'b>(lang_id: impl AsRef<str>, #(#fn_args: impl Into<FluentValue<'a>>),*) -> Cow<'b, str> {
-            let bundle = get_bundle(lang_id.as_ref());
-            let msg = bundle.get_message(#message_id_literal).unwrap();
-            let mut errors = vec![];
-            #message_args
-            bundle.format_pattern(&msg.value().unwrap(), message_args, &mut errors)
-        }
-    })
-}
-
-fn extract_variables<T: AsRef<str> + std::fmt::Debug>(
-    value: Option<&Pattern<T>>,
-) -> Result<Vec<String>, Error> {
-    let mut result = vec![];
-    if let Some(pattern) = value {
-        for element in pattern.elements.iter() {
-            if let PatternElement::Placeable { expression } = element {
-                match expression {
-                    Expression::Select { selector, variants } => {
-                        if let Some(var) = parse_expression(selector)? {
-                            result.push(var)
-                        }
-                        for variant in variants {
-                            result.append(&mut extract_variables(Some(&variant.value))?)
-                        }
-                    }
-                    Expression::Inline(e) => {
-                        if let Some(var) = parse_expression(e)? {
-                            result.push(var)
-                        }
-                    }
-                }
-            }
-        }
-    }
-    Ok(result)
-}
-
-fn parse_expression<T: AsRef<str> + std::fmt::Debug>(
-    inline_expression: &InlineExpression<T>,
-) -> Result<Option<String>, Error> {
-    match inline_expression {
-        ast::InlineExpression::StringLiteral { .. } => Ok(None),
-        ast::InlineExpression::NumberLiteral { .. } => Ok(None),
-        ast::InlineExpression::FunctionReference { id, .. } => Err(Error::UnsupportedFeature {
-            feature: "function reference".to_string(),
-            id: id.name.as_ref().to_string(),
-        }),
-        ast::InlineExpression::MessageReference { id, .. } => Err(Error::UnsupportedFeature {
-            feature: "message reference".to_string(),
-            id: id.name.as_ref().to_string(),
-        }),
-        ast::InlineExpression::TermReference { id, .. } => Err(Error::UnsupportedFeature {
-            feature: "term reference".to_string(),
-            id: id.name.as_ref().to_string(),
-        }),
-
-        ast::InlineExpression::VariableReference { id } => Ok(Some(id.name.as_ref().to_string())),
-        ast::InlineExpression::Placeable { expression } => Err(Error::UnsupportedFeature {
-            feature: "nested expression".to_string(),
-            id: format!("{:?}", *expression),
-        }),
-    }
 }
 
 fn fluent_bundle_name(lang: &str) -> Ident {
