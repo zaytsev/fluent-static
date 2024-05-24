@@ -1,5 +1,5 @@
 [workspace]
-members = ["simple"]
+members = [ "axum","simple"]
 resolver = "2"
 
 [workspace.package]

@@ -1,0 +1,18 @@
+[package]
+name = "axum"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum = { version = "0.7", features = ["multipart"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.4"
+
+maud = { version = "0.26", features = ["axum"] }
+
+fluent-static = { workspace = true, features = ["axum", "maud"] }
+
+anyhow = "1"
+
+[build-dependencies]
+fluent-static-codegen = { workspace = true }
