@@ -1,7 +1,7 @@
 use std::{env, fs, path::Path};
 
 pub fn main() {
-    let src = fluent_static_codegen::build::generate("./l10n/", "en_US")
+    let src = fluent_static_codegen::generate("./l10n/", "en_US")
         .expect("Error generating fluent message bindings");
 
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");

@@ -1,1 +1,3 @@
-pub mod build;
+mod build;
+
+pub use build::{generate, Error};
