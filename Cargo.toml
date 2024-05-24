@@ -7,6 +7,19 @@ exclude = ["examples"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
+homepage = "https://github.com/zaytsev/fluent-static"
+repository = "https://github.com/zaytsev/fluent-static"
+license = "MIT"
+authors = ["Sergey Zaytsev <sergey@zzlabs.xyz>"]
+categories = ["localization", "internationalization"]
+keywords = [
+  "localization",
+  "l10n",
+  "i18n",
+  "intl",
+  "internationalization",
+  "fluent",
+]
 
 [workspace.dependencies]
 fluent-syntax = "0.11"
