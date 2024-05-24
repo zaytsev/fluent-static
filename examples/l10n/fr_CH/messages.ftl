@@ -1,1 +1,1 @@
-hello=Bonjour, $name
+hello=Bonjour, { $name }
