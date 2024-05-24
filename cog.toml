@@ -7,18 +7,24 @@ pre_bump_hooks = [
   "cargo build --release",
   "cargo fmt --all",
   "cargo set-version {{version}}",
-  "git add /Cargo.lock"
+  "git add Cargo.lock",
 ]
+
 post_bump_hooks = [
   "git push",
-  "git push --tags"
+  "git push --tags",
+  "cargo package",
+  "cargo publish",
 ]
 
 [commit_types]
-bump = { changelog_title = "Dependency updates"}
+bump = { changelog_title = "Dependency updates" }
 
 [changelog]
 path = "CHANGELOG.md"
-authors = []
+remote = "github.com"
+repository = "zaytsev"
+owner = "fluent-static"
+authors = [{ signature = "Sergey Zaytsev", username = "zaytsev" }]
 
 [bump_profiles]
