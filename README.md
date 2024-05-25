@@ -68,7 +68,8 @@ mod l10n {
 
 ```rust
 use axum::{routing::get, Router};
-use fluent_static::AcceptedLanguage;
+use fluent_static::axum::RequestLanguage;
+use fluent_static::LanguageSpec;
 use maud::{html, Markup};
 
 #[tokio::main]
@@ -78,7 +79,7 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn handler(lang: AcceptedLanguage) -> Markup {
+async fn handler(RequestLanguage(lang): RequestLanguage<LanguageSpec>) -> Markup {
     let name = "Guest";
     html! {
         html {

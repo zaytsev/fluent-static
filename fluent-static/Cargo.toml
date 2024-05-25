@@ -17,13 +17,17 @@ once_cell = { workspace = true }
 accept-language = { workspace = true }
 
 axum-core = { version = "0.4", optional = true }
+axum-extra = { version = "0.9", optional = true, features = ["cookie"] }
 async-trait = { version = "0.1", optional = true }
 http = { version = "1.1", optional = true }
 
 maud = { version = "0.26", optional = true }
 
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+
 [features]
 default = []
 
-axum = ["dep:axum-core", "dep:async-trait", "dep:http"]
+axum = ["dep:axum-core", "dep:async-trait", "dep:http", "dep:axum-extra"]
 maud = ["dep:maud"]
