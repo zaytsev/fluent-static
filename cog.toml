@@ -14,7 +14,8 @@ post_bump_hooks = [
   "git push",
   "git push --tags",
   "cargo package",
-  "cargo publish",
+  "cargo publish -p fluent-static",
+  "cargo publish -p fluent-static-codegen",
 ]
 
 [commit_types]
