@@ -1,7 +1,8 @@
+use fluent_static_codegen::{generate, FunctionPerMessageCodeGenerator};
 use std::{env, fs, path::Path};
 
 pub fn main() {
-    let src = fluent_static_codegen::generate("./l10n/", "en-US")
+    let src = generate("./l10n/", FunctionPerMessageCodeGenerator::new("en-US"))
         .expect("Error generating fluent message bindings");
 
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");

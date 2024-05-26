@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
@@ -6,8 +8,11 @@ pub enum Error {
     #[error(transparent)]
     PathPrefixError(#[from] std::path::StripPrefixError),
 
-    #[error("Path contans invalid symbols")]
-    InvalidPath,
+    #[error("Path contans invalid symbols: {0}")]
+    InvalidPath(PathBuf),
+
+    #[error("Path doesn not match the expected format {0}")]
+    InvalidPathFormat(PathBuf),
 
     #[error("Error parsing fluent resource")]
     FluentParserError {
@@ -23,6 +28,6 @@ pub enum Error {
     #[error("Message bundle {bundle} integrity validation failed")]
     MessageBundleValidationError {
         bundle: String,
-        missing_messages: Vec<(String, String, Vec<String>)>,
+        mismatching_messages: Vec<(String, String, Vec<String>)>,
     },
 }

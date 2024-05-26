@@ -1,6 +1,9 @@
 mod build;
-mod error;
-mod message;
+pub mod bundle;
+pub mod codegen;
+pub mod error;
+pub mod message;
 
 pub use build::generate;
+pub use codegen::FunctionPerMessageCodeGenerator;
 pub use error::Error;

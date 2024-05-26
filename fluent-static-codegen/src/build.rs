@@ -1,269 +1,80 @@
-use crate::{error::Error, message::Message};
+use crate::{bundle::MessageBundle, codegen::CodeGenerator, error::Error};
 
-use convert_case::{Case, Casing};
-use fluent_syntax::ast;
-use proc_macro2::{Literal, TokenStream};
-use quote::{format_ident, quote};
+use proc_macro2::TokenStream;
+use quote::quote;
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
-use syn::Ident;
 
-#[derive(Debug, Clone)]
-struct MessageBundle {
-    name: String,
-    language_resources: Vec<(String, String)>,
-    prefix: Vec<String>,
-}
-
-pub fn generate(root_dir: impl AsRef<Path>, fallback_language: &str) -> Result<String, Error> {
-    let resource_paths = fluent_resources(&root_dir)?;
+pub fn generate(
+    root_dir: impl AsRef<Path>,
+    code_generator: impl CodeGenerator,
+) -> Result<String, Error> {
+    let paths = list_fluent_resources(&root_dir)?;
 
     let mut resources = vec![];
-    for res_path in resource_paths {
+    for res_path in paths {
         println!("cargo:rerun-if-changed={}", res_path.to_string_lossy());
         let path = res_path.strip_prefix(root_dir.as_ref())?.into();
         let content = fs::read_to_string(res_path)?;
         resources.push((path, content));
     }
-    let result = generate_from_resources(resources, fallback_language)?;
 
-    Ok(result.to_string())
-}
-
-fn generate_from_resources(
-    resources: Vec<(PathBuf, String)>,
-    fallback_language: &str,
-) -> Result<TokenStream, Error> {
-    let bundles = create_message_bundles(resources)?;
-
-    let mut modules = vec![];
-    for bundle in bundles {
-        let module_ident = format_ident!("{}", bundle.name);
-
-        let supported_languages = bundle
-            .language_resources
-            .iter()
-            .map(|(lang, _)| Literal::string(lang));
-
-        let bundle_definitions = bundle
-            .language_resources
-            .iter()
-            .map(|(lang, content)| language_bundles(lang, content))
-            .collect::<Vec<TokenStream>>();
-
-        let language_bundle_mapping = bundle.language_resources.iter().map(|(lang, _)| {
-            let lang_litreral = Literal::string(lang);
-            let bundle = fluent_bundle_name(lang);
-            quote! {
-                #lang_litreral => return &#bundle
-            }
-        });
-
-        let default_bundle = fluent_bundle_name(fallback_language);
-        let format_message_fn = format_ident!("format_message");
-
-        let language_messages = bundle
-            .language_resources
-            .iter()
-            .map(|(lang, resource)| {
-                parse_content(resource).map(|messages| (lang.as_str(), messages))
-            })
-            .collect::<Result<HashMap<&str, HashSet<Message>>, Error>>()?;
-
-        if let Some(fallback_messages) = language_messages.get(fallback_language) {
-            let mut validation_result = vec![];
-            for (lang, msgs) in language_messages.iter() {
-                if *lang != fallback_language {
-                    let missing: Vec<String> = fallback_messages
-                        .difference(msgs)
-                        .map(|msg| msg.name().to_string())
-                        .collect();
-                    if !missing.is_empty() {
-                        validation_result.push((
-                            fallback_language.to_string(),
-                            lang.to_string(),
-                            missing,
-                        ));
-                    }
-                    let extra: Vec<String> = msgs
-                        .difference(fallback_messages)
-                        .map(|msg| msg.name().to_string())
-                        .collect();
-                    if !extra.is_empty() {
-                        validation_result.push((
-                            lang.to_string(),
-                            fallback_language.to_string(),
-                            extra,
-                        ));
-                    }
-                }
-            }
-            if !validation_result.is_empty() {
-                return Err(Error::MessageBundleValidationError {
-                    bundle: bundle.name.clone(),
-                    missing_messages: validation_result,
-                });
-            }
-        } else {
-            return Err(Error::FallbackLanguageNotFound(
-                fallback_language.to_string(),
-            ));
-        }
-
-        let fns = if let Some(fallback_content) =
-            bundle
-                .language_resources
-                .iter()
-                .find_map(|(lang, content)| {
-                    if fallback_language == lang {
-                        Some(content)
-                    } else {
-                        None
-                    }
-                }) {
-            parse_content(fallback_content.as_str())?
-                .iter()
-                .map(|msg| msg.function_code(&format_message_fn))
-                .collect()
-        } else {
-            vec![]
-        };
-
-        let mut module = quote! {
-            pub mod #module_ident {
-                use fluent_static::fluent_bundle::{FluentBundle, FluentResource, FluentValue, FluentArgs, FluentError};
-                use fluent_static::once_cell::sync::Lazy;
-                use fluent_static::Message;
-
-                static SUPPORTED_LANGUAGES: &[&str] = &[#(#supported_languages),*];
-
-                #(#bundle_definitions)*
-
-                fn get_bundle<'a, 'b>(lang: &'a str) -> &'b FluentBundle<FluentResource> {
-                    for common_lang in fluent_static::accept_language::intersection(lang, SUPPORTED_LANGUAGES) {
-                        match common_lang.as_str() {
-                            #(#language_bundle_mapping),* ,
-                            _ => continue,
-                        }
-                    }
-                    & #default_bundle
-                }
-
-                fn #format_message_fn<'a, 'b>(lang_id: &str, message_id: &str, args: Option<&'a FluentArgs>) -> Result<Message<'b>, FluentError> {
-                    let bundle = get_bundle(lang_id.as_ref());
-                    let msg = bundle.get_message(message_id).expect("Message not found");
-                    let mut errors = vec![];
-                    let result = Message::new(bundle.format_pattern(&msg.value().unwrap(), args, &mut errors));
-                    if errors.is_empty() {
-                        Ok(result)
-                    } else {
-                        Err(errors.into_iter().next().unwrap())
-                    }
-                }
-
-                #(#fns)*
-            }
-        };
-
-        for prefix in bundle.prefix.iter().rev() {
-            module = quote! {
-              pub mod #prefix {
-                  #module
-              }
-            };
-        }
-
-        modules.push(module);
-    }
-
-    let result = quote! {
-      #(#modules)*
-    };
-
-    Ok(result)
-}
-
-fn parse_content(content: &str) -> Result<HashSet<Message>, Error> {
-    let resource = fluent_syntax::parser::parse(content)
-        .map_err(|(_, errors)| Error::FluentParserError { errors })?;
-
-    resource
-        .body
+    let message_bundle_generated_code = create_message_bundles(resources)?
         .iter()
-        .filter_map(|entry| {
-            if let ast::Entry::Message(message) = entry {
-                Some(message)
-            } else {
-                None
-            }
-        })
-        .map(|message| Message::parse(message))
-        .collect()
-}
+        .map(|bundle| code_generator.generate(bundle))
+        .collect::<Result<Vec<TokenStream>, Error>>()?;
 
-fn fluent_bundle_name(lang: &str) -> Ident {
-    format_ident!("{}_BUNDLE", lang.to_case(Case::ScreamingSnake))
-}
-
-fn fluent_resource_name(lang: &str) -> Ident {
-    format_ident!("{}_RESOURCE", lang.to_case(Case::ScreamingSnake))
+    Ok(quote! {
+        #(#message_bundle_generated_code)*
+    }
+    .to_string())
 }
 
 fn create_message_bundles(resources: Vec<(PathBuf, String)>) -> Result<Vec<MessageBundle>, Error> {
-    let mut bundles_by_path: BTreeMap<String, MessageBundle> = BTreeMap::new();
-    for (path, content) in resources {
-        if let Some(bundle_name) = path.file_stem() {
-            let path_parts = path
-                .iter()
-                .map(|i| i.to_str().ok_or(Error::InvalidPath).map(|s| s.to_string()))
-                .collect::<Result<Vec<String>, Error>>()?;
+    let bundles_by_path = resources.into_iter().try_fold(
+        BTreeMap::<PathBuf, Vec<(String, String)>>::new(),
+        |mut acc,
+         (resource_path, resource_content)|
+         -> Result<BTreeMap<PathBuf, Vec<(String, String)>>, Error> {
+            let mut path_components = resource_path.components();
+            let lang = path_components
+                .next()
+                .and_then(|c| c.as_os_str().to_str())
+                .ok_or_else(|| Error::InvalidPath(resource_path.clone()))?
+                .to_string();
+            let bundle_path = path_components.as_path().to_path_buf();
 
-            if path_parts.len() > 1 {
-                let bundle_path = path_parts[1..].join("/");
-                let lang = path_parts[0].clone();
+            acc.entry(bundle_path)
+                .or_default()
+                .push((lang, resource_content));
 
-                let bundle = if bundles_by_path.contains_key(&bundle_path) {
-                    bundles_by_path.get_mut(&bundle_path)
-                } else {
-                    let prefix = path_parts[1..path_parts.len() - 1].to_vec();
-                    let new_bundle = MessageBundle {
-                        name: bundle_name.to_string_lossy().into_owned(),
-                        language_resources: vec![],
-                        prefix,
-                    };
-                    bundles_by_path.insert(bundle_path.clone(), new_bundle);
-                    bundles_by_path.get_mut(&bundle_path)
-                }
-                .unwrap();
+            Ok(acc)
+        },
+    )?;
 
-                bundle.language_resources.push((lang, content));
-            }
-        }
-    }
+    bundles_by_path
+        .into_iter()
+        .map(|(bundle_path, lang_resources)| {
+            let bundle_name = bundle_path
+                .file_stem()
+                .ok_or_else(|| Error::InvalidPathFormat(bundle_path.clone()))?
+                .to_str()
+                .ok_or_else(|| Error::InvalidPath(bundle_path.clone()))?;
 
-    Ok(bundles_by_path.into_values().collect())
+            MessageBundle::create(&bundle_name, &bundle_path, lang_resources)
+        })
+        .collect()
 }
 
-fn language_bundles(lang: &String, content: &String) -> TokenStream {
-    let lang_id = lang.as_str();
-    let resource_ident = fluent_resource_name(lang_id);
-    let bundle_ident = fluent_bundle_name(lang_id);
-    let resource = Literal::string(content);
-    quote! {
-        static #resource_ident: &str = #resource;
-        static #bundle_ident: Lazy<FluentBundle<FluentResource>> = Lazy::new(|| {
-            let lang_id = fluent_static::unic_langid::langid!(#lang_id);
-            let mut bundle: FluentBundle<FluentResource> = FluentBundle::new_concurrent(vec![lang_id]);
-            bundle.add_resource(FluentResource::try_new(#resource_ident.to_string()).unwrap()).unwrap();
-            bundle
-        });
-    }
+fn is_fluent_resource(path: &PathBuf) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.to_string_lossy() == "ftl")
 }
 
-fn fluent_resources(root_dir: &impl AsRef<Path>) -> Result<Vec<PathBuf>, Error> {
+fn list_fluent_resources(root_dir: &impl AsRef<Path>) -> Result<Vec<PathBuf>, Error> {
     let mut pending: Vec<PathBuf> = vec![root_dir.as_ref().into()];
     let mut resource_paths: Vec<PathBuf> = vec![];
     while let Some(dir) = pending.pop() {
@@ -271,10 +82,7 @@ fn fluent_resources(root_dir: &impl AsRef<Path>) -> Result<Vec<PathBuf>, Error> 
             let entry_path = entry?.path();
             if entry_path.is_dir() {
                 pending.push(entry_path);
-            } else if entry_path
-                .extension()
-                .is_some_and(|ext| ext.to_string_lossy() == "ftl")
-            {
+            } else if is_fluent_resource(&entry_path) {
                 resource_paths.push(entry_path);
             }
         }
@@ -287,42 +95,109 @@ fn fluent_resources(root_dir: &impl AsRef<Path>) -> Result<Vec<PathBuf>, Error> 
 mod tests {
     use std::{path::PathBuf, str::FromStr};
 
-    #[test]
-    fn test_message_bundles() {
-        let resources = vec![
+    use crate::{
+        bundle::{LanguageBundle, MessageBundle},
+        message::{Message, Var},
+    };
+
+    fn make_fluent_resources() -> Vec<(PathBuf, String)> {
+        vec![
             (
                 PathBuf::from_str("en/main.ftl").unwrap(),
-                r#"
-                    hello=Hello ${ name }
-                "#
-                .to_string(),
+                "hello=Hello { $name }".to_string(),
             ),
             (
-                PathBuf::from_str("ru_RU/main.ftl").unwrap(),
-                r#"
-                    hello=Привет, ${ name }
-                "#
-                .to_string(),
+                PathBuf::from_str("ru-RU/main.ftl").unwrap(),
+                "hello=Привет, { $name }".to_string(),
             ),
             (
                 PathBuf::from_str("en/extra/test.ftl").unwrap(),
-                r#"
-                    hello=Hello ${ name }
-                "#
-                .to_string(),
+                "greetings=Greetings { $user }".to_string(),
             ),
             (
-                PathBuf::from_str("ru_RU/extra/test.ftl").unwrap(),
-                r#"
-                    hello=Привет, ${ name }
-                "#
-                .to_string(),
+                PathBuf::from_str("ru-RU/extra/test.ftl").unwrap(),
+                "greetings=Привет, { $user }".to_string(),
             ),
+        ]
+    }
+
+    #[test]
+    fn create_message_bundles() {
+        let resources = make_fluent_resources();
+
+        let expected = vec![
+            MessageBundle {
+                name: "test".to_string(),
+                path: PathBuf::from_str("extra/test.ftl").unwrap(),
+                langs: vec![
+                    LanguageBundle {
+                        language: "en".to_string(),
+                        resource: resources[2].1.clone(),
+                        messages: vec![Message {
+                            name: "greetings".to_string(),
+                            vars: vec![Var {
+                                name: "user".to_string(),
+                            }]
+                            .into_iter()
+                            .collect(),
+                        }]
+                        .into_iter()
+                        .collect(),
+                    },
+                    LanguageBundle {
+                        language: "ru-RU".to_string(),
+                        resource: resources[3].1.clone(),
+                        messages: vec![Message {
+                            name: "greetings".to_string(),
+                            vars: vec![Var {
+                                name: "user".to_string(),
+                            }]
+                            .into_iter()
+                            .collect(),
+                        }]
+                        .into_iter()
+                        .collect(),
+                    },
+                ],
+            },
+            MessageBundle {
+                name: "main".to_string(),
+                path: PathBuf::from_str("main.ftl").unwrap(),
+                langs: vec![
+                    LanguageBundle {
+                        language: "en".to_string(),
+                        resource: resources[0].1.clone(),
+                        messages: vec![Message {
+                            name: "hello".to_string(),
+                            vars: vec![Var {
+                                name: "name".to_string(),
+                            }]
+                            .into_iter()
+                            .collect(),
+                        }]
+                        .into_iter()
+                        .collect(),
+                    },
+                    LanguageBundle {
+                        language: "ru-RU".to_string(),
+                        resource: resources[1].1.clone(),
+                        messages: vec![Message {
+                            name: "hello".to_string(),
+                            vars: vec![Var {
+                                name: "name".to_string(),
+                            }]
+                            .into_iter()
+                            .collect(),
+                        }]
+                        .into_iter()
+                        .collect(),
+                    },
+                ],
+            },
         ];
 
-        let actual = super::create_message_bundles(resources).unwrap();
+        let actual = super::create_message_bundles(resources.clone()).unwrap();
 
-        assert_eq!(2, actual.len());
-        assert_eq!(2, actual[0].language_resources.len());
+        assert_eq!(expected, actual);
     }
 }

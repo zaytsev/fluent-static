@@ -38,10 +38,11 @@ Ensure your Fluent resources are placed under a specific directory, e.g., `./l10
 Create a `build.rs` file in your project root if it does not exist, and use the following template to generate Rust bindings for your Fluent files:
 
 ```rust
+use fluent_static_codegen::{generate, FunctionPerMessageCodeGenerator};
 use std::{env, fs, path::Path};
 
 pub fn main() {
-    let src = fluent_static_codegen::generate("./l10n/", "en_US")
+    let src = fluent_static_codegen::generate("./l10n/", "en-US")
         .expect("Error generating fluent message bindings");
 
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
@@ -65,6 +66,14 @@ mod l10n {
 }
 ```
 
+
+```toml
+[dependencies]
+fluent-static = { version = "0.1.0", features = [ "axum" ] }
+
+[build-dependencies]
+fluent-static-codegen = "0.1.0"
+```
 
 ```rust
 use axum::{routing::get, Router};
