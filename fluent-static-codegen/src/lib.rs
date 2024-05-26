@@ -5,5 +5,5 @@ pub mod error;
 pub mod message;
 
 pub use build::generate;
-pub use codegen::FunctionPerMessageCodeGenerator;
+pub use codegen::{FunctionPerMessageCodeGenerator, MessageBundleCodeGenerator};
 pub use error::Error;

@@ -7,18 +7,27 @@ use quote::{format_ident, quote};
 
 use super::{common, CodeGenerator};
 
-pub struct FunctionPerMessageCodeGenerator {
+pub struct MessageBundleCodeGenerator {
     default_language: String,
 }
 
-impl CodeGenerator for FunctionPerMessageCodeGenerator {
+impl MessageBundleCodeGenerator {
+    pub fn new(default_language: &str) -> Self {
+        Self {
+            default_language: default_language.to_string(),
+        }
+    }
+}
+
+impl CodeGenerator for MessageBundleCodeGenerator {
     fn generate(&self, bundle: &MessageBundle) -> Result<TokenStream, Error> {
         let module_name = bundle.name_ident();
+        let struct_name = format_ident!("{}Bundle", bundle.name().to_case(Case::UpperCamel));
         let supported_languages = bundle.language_literals();
         let language_bundles = common::language_bundle_definitions(bundle);
         let language_bundle_lookup_fn =
             common::language_bundle_lookup_function_definition(&self.default_language, bundle)?;
-        let message_format_fn = format_ident!("format_message");
+        let message_format_fn = format_ident!("internal_message_format");
         let format_message_fn = common::format_message_function_definition(&message_format_fn);
         let format_message_functions =
             message_functions_definitions(&self.default_language, bundle, &message_format_fn)?;
@@ -27,14 +36,45 @@ impl CodeGenerator for FunctionPerMessageCodeGenerator {
             pub mod #module_name {
                 use fluent_static::fluent_bundle::{FluentBundle, FluentResource, FluentValue, FluentArgs, FluentError};
                 use fluent_static::once_cell::sync::Lazy;
-                use fluent_static::Message;
+                use fluent_static::{LanguageSpec, Message};
 
                 static SUPPORTED_LANGUAGES: &[&str] = &[#(#supported_languages),*];
                 #(#language_bundles)*
                 #language_bundle_lookup_fn
                 #format_message_fn
 
-                #(#format_message_functions)*
+                #[derive(Debug, Clone, PartialEq, Eq)]
+                pub struct #struct_name {
+                    lang: LanguageSpec,
+                }
+
+                impl Into<LanguageSpec> for #struct_name {
+                    fn into(self) -> LanguageSpec {
+                        self.lang
+                    }
+                }
+
+                impl From<LanguageSpec> for #struct_name {
+                    fn from(value: LanguageSpec) -> Self {
+                        Self { lang: value }
+                    }
+                }
+
+                impl AsRef<str> for #struct_name {
+                    fn as_ref(&self) -> &str {
+                        self.lang.as_ref()
+                    }
+                }
+
+                impl #struct_name {
+                    pub fn languages() -> &'static [&'static str] {
+                        SUPPORTED_LANGUAGES
+                    }
+
+                    #(#format_message_functions)*
+                }
+
+
             }
         };
 
@@ -58,22 +98,14 @@ impl CodeGenerator for FunctionPerMessageCodeGenerator {
     }
 }
 
-impl FunctionPerMessageCodeGenerator {
-    pub fn new(default_language: &str) -> Self {
-        Self {
-            default_language: default_language.to_string(),
-        }
-    }
-}
-
 fn message_function_definition(msg: &Message, delegate_fn: &Ident) -> TokenStream {
     let function_ident = msg.function_ident();
     let message_name_literal = msg.message_name_literal();
     let msg_total_vars = msg.vars().len();
     if msg_total_vars == 0 {
         quote! {
-            pub fn #function_ident<'b>(lang_id: impl AsRef<str>) -> Result<Message<'b>, FluentError> {
-                #delegate_fn(lang_id.as_ref(), #message_name_literal, None)
+            pub fn #function_ident<'b>(&self) -> Result<Message<'b>, FluentError> {
+                #delegate_fn(self.lang.as_ref(), #message_name_literal, None)
             }
         }
     } else {
@@ -93,10 +125,10 @@ fn message_function_definition(msg: &Message, delegate_fn: &Ident) -> TokenStrea
             .unzip();
         let capacity = Literal::usize_unsuffixed(msg_total_vars);
         quote! {
-            pub fn #function_ident<'a, 'b>(lang_id: impl AsRef<str>, #(#function_args: impl Into<FluentValue<'a>>),*) -> Result<Message<'b>, FluentError> {
+            pub fn #function_ident<'a, 'b>(&self, #(#function_args: impl Into<FluentValue<'a>>),*) -> Result<Message<'b>, FluentError> {
                 let mut args = FluentArgs::with_capacity(#capacity);
                 #(#fluent_args)*
-                #delegate_fn(lang_id.as_ref(), #message_name_literal, Some(&args))
+                #delegate_fn(self.lang.as_ref(), #message_name_literal, Some(&args))
             }
         }
     }
@@ -142,7 +174,7 @@ mod test {
         )
         .unwrap();
 
-        let actual = super::FunctionPerMessageCodeGenerator::new("en")
+        let actual = super::MessageBundleCodeGenerator::new("en")
             .generate(&message_bundle)
             .unwrap();
 
@@ -151,7 +183,7 @@ mod test {
                 pub mod messages {
                     use fluent_static::fluent_bundle::{FluentBundle, FluentResource, FluentValue, FluentArgs, FluentError};
                     use fluent_static::once_cell::sync::Lazy;
-                    use fluent_static::Message;
+                    use fluent_static::{LanguageSpec, Message};
 
                     static SUPPORTED_LANGUAGES: &[&str] = &["en", "en-UK"];
 
@@ -182,7 +214,7 @@ mod test {
                         & EN_BUNDLE
                     }
 
-                    fn format_message<'a, 'b>(lang_id: &str, message_id: &str, args: Option<&'a FluentArgs>) -> Result<Message<'b>, FluentError> {
+                    fn internal_message_format<'a, 'b>(lang_id: &str, message_id: &str, args: Option<&'a FluentArgs>) -> Result<Message<'b>, FluentError> {
                         let bundle = get_bundle(lang_id.as_ref());
                         let msg = bundle.get_message(message_id).expect("Message not found");
                         let mut errors = vec![];
@@ -194,15 +226,46 @@ mod test {
                         }
                     }
 
-                    pub fn test<'b>(lang_id: impl AsRef<str>) -> Result<Message<'b>, FluentError> {
-                        format_message(lang_id.as_ref(), "test", None)
+
+                    #[derive(Debug, Clone, PartialEq, Eq)]
+                    pub struct MessagesBundle {
+                        lang: LanguageSpec,
                     }
 
-                    pub fn test_args_1<'a, 'b>(lang_id: impl AsRef<str>, name: impl Into<FluentValue<'a>>) -> Result<Message<'b>, FluentError> {
-                        let mut args = FluentArgs::with_capacity(1);
-                        args.set("name", name);
-                        format_message(lang_id.as_ref(), "test-args1", Some(&args))
+                    impl Into<LanguageSpec> for MessagesBundle {
+                        fn into(self) -> LanguageSpec {
+                            self.lang
+                        }
                     }
+
+                    impl From<LanguageSpec> for MessagesBundle {
+                        fn from(value: LanguageSpec) -> Self {
+                            Self { lang: value }
+                        }
+                    }
+
+                    impl AsRef<str> for MessagesBundle {
+                        fn as_ref(&self) -> &str {
+                            self.lang.as_ref()
+                        }
+                    }
+
+                    impl MessagesBundle {
+                        pub fn languages() -> &'static [&'static str] {
+                            SUPPORTED_LANGUAGES
+                        }
+
+                        pub fn test<'b>(&self) -> Result<Message<'b>, FluentError> {
+                            internal_message_format(self.lang.as_ref(), "test", None)
+                        }
+
+                        pub fn test_args_1<'a, 'b>(&self, name: impl Into<FluentValue<'a>>) -> Result<Message<'b>, FluentError> {
+                            let mut args = FluentArgs::with_capacity(1);
+                            args.set("name", name);
+                            internal_message_format(self.lang.as_ref(), "test-args1", Some(&args))
+                        }
+                    }
+
                 }
             }
         };

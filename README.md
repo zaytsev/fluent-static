@@ -42,8 +42,15 @@ use fluent_static_codegen::{generate, FunctionPerMessageCodeGenerator};
 use std::{env, fs, path::Path};
 
 pub fn main() {
-    let src = fluent_static_codegen::generate("./l10n/", "en-US")
-        .expect("Error generating fluent message bindings");
+    // fluent file -> rust module
+    // fluent message -> rust function
+    let src = generate("./l10n/", FunctionPerMessageCodeGenerator::new("en-US"))
+        .expect("Error generating message bindings");
+
+    // fluent file -> rust module, struct name
+    // fluent message -> struct method
+    // let src = generate("./l10n/", MessageBundleCodeGenerator::new("en-US"))
+    //    .expect("Error generating fluent message bindings");
 
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
     let destination = Path::new(&out_dir).join("l10n.rs");
@@ -69,7 +76,7 @@ mod l10n {
 
 ```toml
 [dependencies]
-fluent-static = { version = "0.1.0", features = [ "axum" ] }
+fluent-static = { version = "0.1.0", features = [ "axum", "maud" ] }
 
 [build-dependencies]
 fluent-static-codegen = "0.1.0"
@@ -78,7 +85,6 @@ fluent-static-codegen = "0.1.0"
 ```rust
 use axum::{routing::get, Router};
 use fluent_static::axum::RequestLanguage;
-use fluent_static::LanguageSpec;
 use maud::{html, Markup};
 
 #[tokio::main]
@@ -88,23 +94,24 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn handler(RequestLanguage(lang): RequestLanguage<LanguageSpec>) -> Markup {
+async fn handler(RequestLanguage(msgs): RequestLanguage<l10n::messages::MessagesBundle>) -> Markup {
     let name = "Guest";
     html! {
         html {
             head {
                 title {
-                    (l10n::messages::page_title(&lang).unwrap())
+                    (msgs.page_title().unwrap())
                 }
             }
             body {
                 h1 {
-                    (l10n::messages::hello(&lang, name).unwrap())
+                    (msgs.hello(name).unwrap())
                 }
             }
         }
     }
 }
+
 mod l10n {
     include!(concat!(env!("OUT_DIR"), "/l10n.rs"));
 }

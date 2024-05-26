@@ -68,12 +68,23 @@ impl MessageBundle {
         }
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }
 
     pub fn name_ident(&self) -> Ident {
         format_ident!("{}", self.name.to_case(Case::Snake))
+    }
+
+    pub fn language_literals(&self) -> Vec<Literal> {
+        self.langs
+            .iter()
+            .map(|lang| Literal::string(lang.language()))
+            .collect()
     }
 }
 

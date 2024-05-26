@@ -1,6 +1,5 @@
 use axum::{routing::get, Router};
 use fluent_static::axum::RequestLanguage;
-use fluent_static::LanguageSpec;
 use maud::{html, Markup};
 
 #[tokio::main]
@@ -10,18 +9,18 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn handler(RequestLanguage(lang): RequestLanguage<LanguageSpec>) -> Markup {
+async fn handler(RequestLanguage(msgs): RequestLanguage<l10n::messages::MessagesBundle>) -> Markup {
     let name = "Guest";
     html! {
         html {
             head {
                 title {
-                    (l10n::messages::page_title(&lang).unwrap())
+                    (msgs.page_title().unwrap())
                 }
             }
             body {
                 h1 {
-                    (l10n::messages::hello(&lang, name).unwrap())
+                    (msgs.hello(name).unwrap())
                 }
             }
         }
