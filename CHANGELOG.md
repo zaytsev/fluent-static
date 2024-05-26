@@ -2,6 +2,20 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.2.0 - 2024-05-26
+#### Bug Fixes
+- Use proper language naming in axum example - (9533532) - zaytsev
+#### Features
+- New code generator: create message bundle structs - (79ff0ca) - zaytsev
+- Make axum language extraction more flexible - (4d48033) - zaytsev
+#### Miscellaneous Chores
+- Fix package publishing in cog post bump hook - (cdc2bcb) - zaytsev
+- Fix cargo manifest keywords - (bf16ffa) - zaytsev
+#### Refactoring
+- Refactor codegen - (10ea355) - zaytsev
+
+- - -
+
 ## v0.1.0 - 2024-05-24
 #### Bug Fixes
 - Fix invalid message format in example project - (f89b0b0) - zaytsev
