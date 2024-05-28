@@ -28,11 +28,12 @@ impl CodeGenerator for MessageBundleCodeGenerator {
         let language_bundle_lookup_fn =
             common::language_bundle_lookup_function_definition(&self.default_language, bundle)?;
         let message_format_fn = format_ident!("internal_message_format");
-        let format_message_fn = common::format_message_function_definition(&message_format_fn);
+        let format_message_fn = format_message_function_definition(&message_format_fn);
         let format_message_functions =
             message_functions_definitions(&self.default_language, bundle, &message_format_fn)?;
 
         let mut module = quote! {
+            #[allow(dead_code)]
             pub mod #module_name {
                 use fluent_static::fluent_bundle::{FluentBundle, FluentResource, FluentValue, FluentArgs, FluentError};
                 use fluent_static::once_cell::sync::Lazy;
@@ -43,9 +44,10 @@ impl CodeGenerator for MessageBundleCodeGenerator {
                 #language_bundle_lookup_fn
                 #format_message_fn
 
-                #[derive(Debug, Clone, PartialEq, Eq)]
+                #[derive(Clone)]
                 pub struct #struct_name {
                     lang: LanguageSpec,
+                    bundle: &'static FluentBundle<FluentResource>,
                 }
 
                 impl Into<LanguageSpec> for #struct_name {
@@ -56,7 +58,10 @@ impl CodeGenerator for MessageBundleCodeGenerator {
 
                 impl From<LanguageSpec> for #struct_name {
                     fn from(value: LanguageSpec) -> Self {
-                        Self { lang: value }
+                        Self {
+                            lang: value.clone(),
+                            bundle: get_bundle(value.as_ref())
+                         }
                     }
                 }
 
@@ -67,8 +72,12 @@ impl CodeGenerator for MessageBundleCodeGenerator {
                 }
 
                 impl #struct_name {
-                    pub fn languages() -> &'static [&'static str] {
+                    pub fn all_languages() -> &'static [&'static str] {
                         SUPPORTED_LANGUAGES
+                    }
+
+                    pub fn current_language(&self) -> &LanguageSpec {
+                        &self.lang
                     }
 
                     #(#format_message_functions)*
@@ -98,6 +107,21 @@ impl CodeGenerator for MessageBundleCodeGenerator {
     }
 }
 
+pub fn format_message_function_definition(fn_name: &Ident) -> TokenStream {
+    quote! {
+        fn #fn_name<'a, 'b>(bundle: &'static FluentBundle<FluentResource>, message_id: &str, args: Option<&'a FluentArgs>) -> Result<Message<'b>, FluentError> {
+            let msg = bundle.get_message(message_id).expect("Message not found");
+            let mut errors = vec![];
+            let result = Message::new(bundle.format_pattern(&msg.value().unwrap(), args, &mut errors));
+            if errors.is_empty() {
+                Ok(result)
+            } else {
+                Err(errors.into_iter().next().unwrap())
+            }
+        }
+    }
+}
+
 fn message_function_definition(msg: &Message, delegate_fn: &Ident) -> TokenStream {
     let function_ident = msg.function_ident();
     let message_name_literal = msg.message_name_literal();
@@ -105,7 +129,7 @@ fn message_function_definition(msg: &Message, delegate_fn: &Ident) -> TokenStrea
     if msg_total_vars == 0 {
         quote! {
             pub fn #function_ident<'b>(&self) -> Result<Message<'b>, FluentError> {
-                #delegate_fn(self.lang.as_ref(), #message_name_literal, None)
+                #delegate_fn(self.bundle, #message_name_literal, None)
             }
         }
     } else {
@@ -128,7 +152,7 @@ fn message_function_definition(msg: &Message, delegate_fn: &Ident) -> TokenStrea
             pub fn #function_ident<'a, 'b>(&self, #(#function_args: impl Into<FluentValue<'a>>),*) -> Result<Message<'b>, FluentError> {
                 let mut args = FluentArgs::with_capacity(#capacity);
                 #(#fluent_args)*
-                #delegate_fn(self.lang.as_ref(), #message_name_literal, Some(&args))
+                #delegate_fn(self.bundle, #message_name_literal, Some(&args))
             }
         }
     }
@@ -180,6 +204,7 @@ mod test {
 
         let expected = quote! {
             pub mod test {
+                #[allow(dead_code)]
                 pub mod messages {
                     use fluent_static::fluent_bundle::{FluentBundle, FluentResource, FluentValue, FluentArgs, FluentError};
                     use fluent_static::once_cell::sync::Lazy;
@@ -214,8 +239,7 @@ mod test {
                         & EN_BUNDLE
                     }
 
-                    fn internal_message_format<'a, 'b>(lang_id: &str, message_id: &str, args: Option<&'a FluentArgs>) -> Result<Message<'b>, FluentError> {
-                        let bundle = get_bundle(lang_id.as_ref());
+                    fn internal_message_format<'a, 'b>(bundle: &'static FluentBundle<FluentResource>, message_id: &str, args: Option<&'a FluentArgs>) -> Result<Message<'b>, FluentError> {
                         let msg = bundle.get_message(message_id).expect("Message not found");
                         let mut errors = vec![];
                         let result = Message::new(bundle.format_pattern(&msg.value().unwrap(), args, &mut errors));
@@ -227,9 +251,10 @@ mod test {
                     }
 
 
-                    #[derive(Debug, Clone, PartialEq, Eq)]
+                    #[derive(Clone)]
                     pub struct MessagesBundle {
                         lang: LanguageSpec,
+                        bundle: &'static FluentBundle<FluentResource>,
                     }
 
                     impl Into<LanguageSpec> for MessagesBundle {
@@ -240,7 +265,10 @@ mod test {
 
                     impl From<LanguageSpec> for MessagesBundle {
                         fn from(value: LanguageSpec) -> Self {
-                            Self { lang: value }
+                            Self {
+                                lang: value.clone(),
+                                bundle: get_bundle(value.as_ref())
+                             }
                         }
                     }
 
@@ -251,18 +279,22 @@ mod test {
                     }
 
                     impl MessagesBundle {
-                        pub fn languages() -> &'static [&'static str] {
+                        pub fn all_languages() -> &'static [&'static str] {
                             SUPPORTED_LANGUAGES
                         }
 
+                        pub fn current_language(&self) -> &LanguageSpec {
+                            &self.lang
+                        }
+
                         pub fn test<'b>(&self) -> Result<Message<'b>, FluentError> {
-                            internal_message_format(self.lang.as_ref(), "test", None)
+                            internal_message_format(self.bundle, "test", None)
                         }
 
                         pub fn test_args_1<'a, 'b>(&self, name: impl Into<FluentValue<'a>>) -> Result<Message<'b>, FluentError> {
                             let mut args = FluentArgs::with_capacity(1);
                             args.set("name", name);
-                            internal_message_format(self.lang.as_ref(), "test-args1", Some(&args))
+                            internal_message_format(self.bundle, "test-args1", Some(&args))
                         }
                     }
 
