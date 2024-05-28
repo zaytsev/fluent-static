@@ -261,7 +261,7 @@ dependencies = [
 
 [[package]]
 name = "fluent-static"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "accept-language",
  "async-trait",
@@ -276,12 +276,11 @@ dependencies = [
 
 [[package]]
 name = "fluent-static-codegen"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "accept-language",
  "convert_case",
  "fluent-bundle",
- "fluent-static",
  "fluent-syntax",
  "once_cell",
  "proc-macro2",
