@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.2.1 - 2024-05-28
+#### Miscellaneous Chores
+- Fix examples build failing due to a version constraints - (6fa1bc8) - zaytsev
+#### Performance Improvements
+- Detect language once on message struct creation - (74344a8) - zaytsev
+
+- - -
+
 ## v0.2.0 - 2024-05-26
 #### Bug Fixes
 - Use proper language naming in axum example - (9533532) - zaytsev
