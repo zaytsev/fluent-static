@@ -35,6 +35,7 @@ impl CodeGenerator for MessageBundleCodeGenerator {
         let mut module = quote! {
             #[allow(dead_code)]
             pub mod #module_name {
+                #[allow(unused_imports)]
                 use fluent_static::fluent_bundle::{FluentBundle, FluentResource, FluentValue, FluentArgs, FluentError};
                 use fluent_static::once_cell::sync::Lazy;
                 use fluent_static::{LanguageSpec, Message};
@@ -206,6 +207,7 @@ mod test {
             pub mod test {
                 #[allow(dead_code)]
                 pub mod messages {
+                    #[allow(unused_imports)]
                     use fluent_static::fluent_bundle::{FluentBundle, FluentResource, FluentValue, FluentArgs, FluentError};
                     use fluent_static::once_cell::sync::Lazy;
                     use fluent_static::{LanguageSpec, Message};

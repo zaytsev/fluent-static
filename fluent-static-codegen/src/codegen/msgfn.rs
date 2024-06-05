@@ -25,6 +25,7 @@ impl CodeGenerator for FunctionPerMessageCodeGenerator {
 
         let mut module = quote! {
             pub mod #module_name {
+                #[allow(unused_imports)]
                 use fluent_static::fluent_bundle::{FluentBundle, FluentResource, FluentValue, FluentArgs, FluentError};
                 use fluent_static::once_cell::sync::Lazy;
                 use fluent_static::Message;
@@ -149,6 +150,7 @@ mod test {
         let expected = quote! {
             pub mod test {
                 pub mod messages {
+                    #[allow(unused_imports)]
                     use fluent_static::fluent_bundle::{FluentBundle, FluentResource, FluentValue, FluentArgs, FluentError};
                     use fluent_static::once_cell::sync::Lazy;
                     use fluent_static::Message;
