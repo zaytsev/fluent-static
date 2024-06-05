@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.2.2 - 2024-06-05
+#### Miscellaneous Chores
+- disable warning: unused import: `FluentValue` with translation without args - (7cb48f7) - AlbanMinassian
+
+- - -
+
 ## v0.2.1 - 2024-05-28
 #### Miscellaneous Chores
 - Fix examples build failing due to a version constraints - (6fa1bc8) - zaytsev
