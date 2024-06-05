@@ -5,7 +5,7 @@ resolver = "2"
 exclude = ["examples"]
 
 [workspace.package]
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 homepage = "https://github.com/zaytsev/fluent-static"
 repository = "https://github.com/zaytsev/fluent-static"

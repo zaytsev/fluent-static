@@ -2,6 +2,16 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.2.3 - 2024-06-05
+#### Documentation
+- Add readme to crates packages - (0e059da) - zaytsev
+#### Miscellaneous Chores
+- Bump examples dependencies - (68a3fce) - zaytsev
+#### Tests
+- Ensure that multiline messages are supported - (9d81bb5) - zaytsev
+
+- - -
+
 ## v0.2.2 - 2024-06-05
 #### Miscellaneous Chores
 - disable warning: unused import: `FluentValue` with translation without args - (7cb48f7) - AlbanMinassian
