@@ -10,6 +10,11 @@ authors.workspace = true
 categories.workspace = true
 keywords.workspace = true
 
+include = ["/src", "README.md", "CHANGELOG.md"]
+
+[lib]
+path = "src/lib.rs"
+
 [dependencies]
 fluent-syntax = { workspace = true }
 fluent-bundle = { workspace = true }
