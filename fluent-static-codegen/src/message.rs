@@ -121,4 +121,34 @@ fn parse_expression<T: AsRef<str>>(
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use fluent_syntax::{ast, parser};
+
+    use super::Message;
+
+    fn parse(content: &'static str) -> Vec<ast::Message<&'static str>> {
+        let resource = parser::parse(content).unwrap();
+
+        resource
+            .body
+            .into_iter()
+            .filter_map(|entry| {
+                if let ast::Entry::Message(message) = entry {
+                    Some(message)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<ast::Message<_>>>()
+    }
+
+    #[test]
+    fn multiline_message() {
+        let resource = "test = foo\n    bar\n\ntest1 = foo bar";
+        let msg = parse(resource).into_iter().next().unwrap();
+
+        let msg = Message::parse(&msg).unwrap();
+
+        assert_eq!("test", msg.name())
+    }
+}

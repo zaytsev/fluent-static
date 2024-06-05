@@ -1,1 +1,6 @@
-hello=Hello, { $name }
+hello=
+  Hello,
+  my
+  dear
+  fried
+  { $name }
