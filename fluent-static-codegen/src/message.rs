@@ -14,8 +14,10 @@ pub struct Var {
 }
 
 impl Var {
-    pub fn new(name: String) -> Self {
-        Self { name }
+    pub fn new(name: impl AsRef<str>) -> Self {
+        Self {
+            name: name.as_ref().to_string(),
+        }
     }
     pub fn ident(&self) -> Ident {
         format_ident!("{}", self.name.to_case(Case::Snake))
@@ -71,52 +73,62 @@ fn extract_variables<T: AsRef<str>>(
     if let Some(pattern) = value {
         for element in pattern.elements.iter() {
             if let ast::PatternElement::Placeable { expression } = element {
-                match expression {
-                    ast::Expression::Select { selector, variants } => {
-                        if let Some(var) = parse_expression(selector)? {
-                            result.insert(Var::new(var));
-                        }
-                        for variant in variants {
-                            result.extend(extract_variables(Some(&variant.value))?.into_iter())
-                        }
-                    }
-                    ast::Expression::Inline(e) => {
-                        if let Some(var) = parse_expression(e)? {
-                            result.insert(Var::new(var));
-                        }
-                    }
-                }
+                result.extend(parse_expression(expression)?)
             }
         }
     }
     Ok(result)
 }
 
-fn parse_expression<T: AsRef<str>>(
-    inline_expression: &ast::InlineExpression<T>,
-) -> Result<Option<String>, Error> {
-    match inline_expression {
-        ast::InlineExpression::StringLiteral { .. } => Ok(None),
-        ast::InlineExpression::NumberLiteral { .. } => Ok(None),
-        ast::InlineExpression::FunctionReference { id, .. } => Err(Error::UnsupportedFeature {
-            feature: "function reference".to_string(),
-            id: id.name.as_ref().to_string(),
-        }),
-        ast::InlineExpression::MessageReference { id, .. } => Err(Error::UnsupportedFeature {
-            feature: "message reference".to_string(),
-            id: id.name.as_ref().to_string(),
-        }),
-        ast::InlineExpression::TermReference { id, .. } => Err(Error::UnsupportedFeature {
-            feature: "term reference".to_string(),
-            id: id.name.as_ref().to_string(),
-        }),
+fn parse_expression<T: AsRef<str>>(expression: &ast::Expression<T>) -> Result<Vec<Var>, Error> {
+    match expression {
+        ast::Expression::Select { selector, variants } => {
+            let mut result = vec![];
+            result.extend(parse_inline_expression(selector)?);
+            for variant in variants {
+                result.extend(extract_variables(Some(&variant.value))?.into_iter());
+            }
+            Ok(result)
+        }
+        ast::Expression::Inline(e) => parse_inline_expression(e),
+    }
+}
 
-        ast::InlineExpression::VariableReference { id } => Ok(Some(id.name.as_ref().to_string())),
-        ast::InlineExpression::Placeable { .. } => Err(Error::UnsupportedFeature {
-            feature: "nested expression".to_string(),
-            // TODO better diagnostics
-            id: "".to_string(),
-        }),
+fn parse_inline_expression<T: AsRef<str>>(
+    inline_expression: &ast::InlineExpression<T>,
+) -> Result<Vec<Var>, Error> {
+    match inline_expression {
+        ast::InlineExpression::StringLiteral { .. }
+        | ast::InlineExpression::NumberLiteral { .. }
+        | ast::InlineExpression::MessageReference { .. } => Ok(Vec::default()),
+        ast::InlineExpression::FunctionReference { arguments, .. } => {
+            parse_call_arguments(Some(arguments))
+        }
+
+        ast::InlineExpression::TermReference { arguments, .. } => {
+            parse_call_arguments(arguments.as_ref())
+        }
+
+        ast::InlineExpression::VariableReference { id } => Ok(vec![Var::new(&id.name)]),
+        ast::InlineExpression::Placeable { expression } => parse_expression(expression),
+    }
+}
+
+fn parse_call_arguments<T: AsRef<str>>(
+    arguments: Option<&ast::CallArguments<T>>,
+) -> Result<Vec<Var>, Error> {
+    if let Some(arguments) = arguments {
+        let mut result = vec![];
+        for expr in &arguments.positional {
+            result.extend(parse_inline_expression(expr)?)
+        }
+        for ast::NamedArgument { value, .. } in &arguments.named {
+            result.extend(parse_inline_expression(value)?)
+        }
+
+        Ok(result)
+    } else {
+        Ok(Vec::default())
     }
 }
 
@@ -150,5 +162,83 @@ mod tests {
         let msg = Message::parse(&msg).unwrap();
 
         assert_eq!("test", msg.name())
+    }
+
+    #[test]
+    fn message_with_selector() {
+        let resource = r#"
+test = 
+  {
+    $foo ->
+       [one] -> bar
+       *[other] -> { $baz }
+  }
+"#;
+        let msg = parse(resource).into_iter().next().unwrap();
+
+        let msg = Message::parse(&msg).unwrap();
+
+        assert_eq!("test", msg.name());
+        assert_eq!(2, msg.vars().len());
+        let mut vars = msg.vars().into_iter();
+        assert_eq!("baz", vars.next().unwrap().name);
+        assert_eq!("foo", vars.next().unwrap().name);
+    }
+
+    #[test]
+    fn message_with_term_reference() {
+        let resource = "test = foo { -test1 }\n-test1 = foo bar";
+        let msg = parse(resource).into_iter().next().unwrap();
+
+        let msg = Message::parse(&msg).unwrap();
+
+        assert_eq!("test", msg.name());
+        assert_eq!(0, msg.vars().len());
+    }
+
+    #[test]
+    fn message_with_simple_function() {
+        let resource = "test = foo { FOO($baz) }\n-test1 = foo bar";
+        let msg = parse(resource).into_iter().next().unwrap();
+
+        let msg = Message::parse(&msg).unwrap();
+
+        assert_eq!("test", msg.name());
+        assert_eq!(1, msg.vars().len());
+    }
+
+    #[test]
+    fn message_with_function_with_named_args() {
+        let resource = "test = foo { FOO($baz, bar: \"foo\") }\n-test1 = foo bar";
+        let msg = parse(resource).into_iter().next().unwrap();
+
+        let msg = Message::parse(&msg).unwrap();
+
+        assert_eq!("test", msg.name());
+        assert_eq!(1, msg.vars().len());
+    }
+
+    #[test]
+    // TODO: how to pass arguments to term/message reference?
+    fn message_with_message_reference() {
+        let resource = "test = foo { test1 }\ntest1 = foo { $bar }";
+        let msg = parse(resource).into_iter().next().unwrap();
+
+        let msg = Message::parse(&msg).unwrap();
+
+        assert_eq!("test", msg.name());
+        assert_eq!(0, msg.vars().len());
+    }
+
+    #[test]
+    // TODO: how to pass arguments to term/message reference?
+    fn message_with_parameterized_term_reference() {
+        let resource = "test = foo { -test1 }\n-test1 = foo { $bar }";
+        let msg = parse(resource).into_iter().next().unwrap();
+
+        let msg = Message::parse(&msg).unwrap();
+
+        assert_eq!("test", msg.name());
+        assert_eq!(0, msg.vars().len());
     }
 }
