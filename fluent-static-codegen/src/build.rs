@@ -141,6 +141,7 @@ mod tests {
                             }]
                             .into_iter()
                             .collect(),
+                            attrs: None,
                         }]
                         .into_iter()
                         .collect(),
@@ -155,6 +156,7 @@ mod tests {
                             }]
                             .into_iter()
                             .collect(),
+                            attrs: None,
                         }]
                         .into_iter()
                         .collect(),
@@ -175,6 +177,7 @@ mod tests {
                             }]
                             .into_iter()
                             .collect(),
+                            attrs: None,
                         }]
                         .into_iter()
                         .collect(),
@@ -189,6 +192,7 @@ mod tests {
                             }]
                             .into_iter()
                             .collect(),
+                            attrs: None,
                         }]
                         .into_iter()
                         .collect(),

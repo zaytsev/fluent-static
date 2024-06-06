@@ -32,13 +32,15 @@ impl Var {
 pub struct Message {
     pub(crate) name: String,
     pub(crate) vars: BTreeSet<Var>,
+    pub(crate) attrs: Option<BTreeSet<Message>>,
 }
 
 impl Message {
     pub fn parse<T: AsRef<str>>(message: &ast::Message<T>) -> Result<Self, Error> {
         let name = message.id.name.as_ref().to_string();
         let vars = extract_variables(message.value.as_ref())?;
-        Ok(Self { name, vars })
+        let attrs = extract_attributes(&message.attributes)?;
+        Ok(Self { name, vars, attrs })
     }
 
     pub fn name(&self) -> &str {
@@ -56,6 +58,14 @@ impl Message {
     pub fn vars(&self) -> BTreeSet<&Var> {
         self.vars.iter().collect()
     }
+
+    pub fn attrs(&self) -> BTreeSet<&Message> {
+        if let Some(attrs) = self.attrs.as_ref() {
+            attrs.iter().collect()
+        } else {
+            BTreeSet::default()
+        }
+    }
 }
 
 impl<T: AsRef<str>> TryFrom<&ast::Message<T>> for Message {
@@ -63,6 +73,25 @@ impl<T: AsRef<str>> TryFrom<&ast::Message<T>> for Message {
 
     fn try_from(value: &ast::Message<T>) -> Result<Self, Self::Error> {
         Message::parse(value)
+    }
+}
+
+fn extract_attributes<T: AsRef<str>>(
+    attributes: &[ast::Attribute<T>],
+) -> Result<Option<BTreeSet<Message>>, Error> {
+    if !attributes.is_empty() {
+        let mut result = BTreeSet::new();
+        for attr in attributes {
+            let msg = Message {
+                name: attr.id.name.as_ref().to_string(),
+                vars: extract_variables(Some(&attr.value))?,
+                attrs: None,
+            };
+            result.insert(msg);
+        }
+        Ok(Some(result))
+    } else {
+        Ok(None)
     }
 }
 
@@ -104,11 +133,9 @@ fn parse_inline_expression<T: AsRef<str>>(
         ast::InlineExpression::FunctionReference { arguments, .. } => {
             parse_call_arguments(Some(arguments))
         }
-
         ast::InlineExpression::TermReference { arguments, .. } => {
             parse_call_arguments(arguments.as_ref())
         }
-
         ast::InlineExpression::VariableReference { id } => Ok(vec![Var::new(&id.name)]),
         ast::InlineExpression::Placeable { expression } => parse_expression(expression),
     }
@@ -197,6 +224,18 @@ test =
     }
 
     #[test]
+    // TODO: how to pass arguments to term/message reference?
+    fn message_with_parameterized_term_reference() {
+        let resource = "test = foo { -test1 }\n-test1 = foo { $bar }";
+        let msg = parse(resource).into_iter().next().unwrap();
+
+        let msg = Message::parse(&msg).unwrap();
+
+        assert_eq!("test", msg.name());
+        assert_eq!(0, msg.vars().len());
+    }
+
+    #[test]
     fn message_with_simple_function() {
         let resource = "test = foo { FOO($baz) }\n-test1 = foo bar";
         let msg = parse(resource).into_iter().next().unwrap();
@@ -205,6 +244,8 @@ test =
 
         assert_eq!("test", msg.name());
         assert_eq!(1, msg.vars().len());
+        let mut vars = msg.vars().into_iter();
+        assert_eq!("baz", vars.next().unwrap().name);
     }
 
     #[test]
@@ -216,6 +257,8 @@ test =
 
         assert_eq!("test", msg.name());
         assert_eq!(1, msg.vars().len());
+        let mut vars = msg.vars().into_iter();
+        assert_eq!("baz", vars.next().unwrap().name);
     }
 
     #[test]
@@ -231,14 +274,43 @@ test =
     }
 
     #[test]
-    // TODO: how to pass arguments to term/message reference?
-    fn message_with_parameterized_term_reference() {
-        let resource = "test = foo { -test1 }\n-test1 = foo { $bar }";
+    fn message_with_simple_attributes() {
+        let resource =
+            "test-attrs = foo { $test1 }\n  .attr2=bar\n  .attr1=baz\ntest1 = foo { $bar }";
         let msg = parse(resource).into_iter().next().unwrap();
 
         let msg = Message::parse(&msg).unwrap();
 
-        assert_eq!("test", msg.name());
-        assert_eq!(0, msg.vars().len());
+        assert_eq!("test-attrs", msg.name());
+        assert_eq!(1, msg.vars().len());
+
+        let mut attrs = msg.attrs().into_iter();
+        let attr = attrs.next().unwrap();
+        assert_eq!("attr1", attr.name());
+        assert!(attr.vars().is_empty());
+        let attr = attrs.next().unwrap();
+        assert_eq!("attr2", attr.name());
+        assert!(attr.vars().is_empty());
+    }
+
+    #[test]
+    fn message_with_variable_attributes() {
+        let resource =
+            "test-attrs = foo { $test1 }\n  .attr2=bar\n  .attr1=attr { $baz }\ntest1 = foo { $bar }";
+        let msg = parse(resource).into_iter().next().unwrap();
+
+        let msg = Message::parse(&msg).unwrap();
+
+        assert_eq!("test-attrs", msg.name());
+        assert_eq!(1, msg.vars().len());
+
+        let mut attrs = msg.attrs().into_iter();
+        let attr = attrs.next().unwrap();
+        assert_eq!("attr1", attr.name());
+        assert_eq!(1, attr.vars().len());
+        assert_eq!("baz", attr.vars().into_iter().next().unwrap().name);
+        let attr = attrs.next().unwrap();
+        assert_eq!("attr2", attr.name());
+        assert!(attr.vars().is_empty());
     }
 }
