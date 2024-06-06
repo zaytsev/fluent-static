@@ -11,7 +11,7 @@ Fluent-static is a Rust library designed to generate statically typed function b
 
 ## Prerequisites
 
-Before you begin, ensure you have the latest stable version of Rust installed on your machine. This project uses features that require Rust 2018 edition or later.
+Before you begin, ensure you have the latest stable version of Rust installed on your machine. This project uses features that require Rust 2021 edition or later.
 
 ## Installation
 
@@ -19,10 +19,10 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-fluent-static = "0.1.0"  # Make sure to use the latest version
+fluent-static = { version = "0.2.3" }
 
 [build-dependencies]
-fluent-static-codegen = "0.1.0"
+fluent-static-codegen = {version = "0.2.3" }
 ```
 
 ## Usage
@@ -76,10 +76,10 @@ mod l10n {
 
 ```toml
 [dependencies]
-fluent-static = { version = "0.1.0", features = [ "axum", "maud" ] }
+fluent-static = { version = "0.2.3", features = [ "axum", "maud" ] }
 
 [build-dependencies]
-fluent-static-codegen = "0.1.0"
+fluent-static-codegen = { version = "0.2.3" }
 ```
 
 ```rust
