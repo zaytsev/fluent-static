@@ -7,7 +7,9 @@ pre_bump_hooks = [
   "cargo build --release",
   "cargo fmt --all",
   "cargo set-version {{version}}",
-  "git add Cargo.lock",
+  "sed -i \"s/\\(fluent-static = {\\s*version = \\\"\\){{latest}}\\(\\\"\\(,.*\\)\\?\\s*}\\)/\\1{{version}}\\2/g\" README.md",
+  "sed -i \"s/\\(fluent-static-codegen = {\\s*version = \\\"\\){{latest}}\\(\\\"\\(,.*\\)\\?\\s*}\\)/\\1{{version}}\\2/g\" README.md",
+  "git add Cargo.lock README.md",
 ]
 
 post_bump_hooks = [
