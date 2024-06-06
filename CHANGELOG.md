@@ -2,6 +2,16 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.2.4 - 2024-06-06
+#### Documentation
+- Update crate versions referenced in README - (88bc2f5) - zaytsev
+#### Features
+- **(codegen)** Add support for message, term and function references - (e9ac878) - *zaytsev*
+#### Miscellaneous Chores
+- Try to make  to automatically update crate versions refernced in README - (86b62c2) - zaytsev
+
+- - -
+
 ## v0.2.3 - 2024-06-05
 #### Documentation
 - Add readme to crates packages - (0e059da) - zaytsev
