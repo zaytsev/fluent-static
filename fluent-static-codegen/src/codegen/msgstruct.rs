@@ -129,8 +129,9 @@ fn message_function_definition(msg: &Message, delegate_fn: &Ident) -> TokenStrea
     let msg_total_vars = msg.vars().len();
     if msg_total_vars == 0 {
         quote! {
-            pub fn #function_ident<'b>(&self) -> Result<Message<'b>, FluentError> {
+            pub fn #function_ident<'b>(&self) -> Message<'b> {
                 #delegate_fn(self.bundle, #message_name_literal, None)
+                    .expect("Not fallible without variables; qed")
             }
         }
     } else {
@@ -289,8 +290,9 @@ mod test {
                             &self.lang
                         }
 
-                        pub fn test<'b>(&self) -> Result<Message<'b>, FluentError> {
+                        pub fn test<'b>(&self) -> Message<'b> {
                             internal_message_format(self.bundle, "test", None)
+                                .expect("Not fallible without variables; qed")
                         }
 
                         pub fn test_args_1<'a, 'b>(&self, name: impl Into<FluentValue<'a>>) -> Result<Message<'b>, FluentError> {
