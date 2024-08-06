@@ -2,6 +2,17 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.3.1 - 2024-08-06
+#### Bug Fixes
+- **(examples)** Fix examples build errors - (1855751) - *zaytsev*
+#### Documentation
+- Fix example code in README - (e18614a) - zaytsev
+#### Features
+- **(codegen)** Generate message functions for attributes - (4c56ef5) - *zaytsev*
+- Keep message functions variables order as in fluent resource - (6143b79) - zaytsev
+
+- - -
+
 ## v0.3.0 - 2024-08-06
 #### Bug Fixes
 - Re-run codegen on any changes in resource directory - (431da6d) - Nazar Mokrynskyi
