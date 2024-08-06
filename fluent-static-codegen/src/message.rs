@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use convert_case::{Case, Casing};
 use fluent_syntax::ast;
-use proc_macro2::Literal;
+use proc_macro2::{Literal, TokenStream};
 use quote::format_ident;
 use syn::Ident;
 
@@ -31,6 +31,7 @@ impl Var {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Message {
     pub(crate) name: String,
+    pub(crate) attribute_name: Option<String>,
     pub(crate) vars: BTreeSet<Var>,
     pub(crate) attrs: Option<BTreeSet<Message>>,
 }
@@ -39,8 +40,13 @@ impl Message {
     pub fn parse<T: AsRef<str>>(message: &ast::Message<T>) -> Result<Self, Error> {
         let name = message.id.name.as_ref().to_string();
         let vars = extract_variables(message.value.as_ref())?;
-        let attrs = extract_attributes(&message.attributes)?;
-        Ok(Self { name, vars, attrs })
+        let attrs = extract_attributes(&name, &message.attributes)?;
+        Ok(Self {
+            name,
+            vars,
+            attrs,
+            attribute_name: None,
+        })
     }
 
     pub fn name(&self) -> &str {
@@ -48,15 +54,34 @@ impl Message {
     }
 
     pub fn function_ident(&self) -> Ident {
-        format_ident!("{}", self.name.to_case(Case::Snake))
+        let base_name = self.name().to_case(Case::Snake);
+
+        self.attribute_name.as_ref().map_or_else(
+            || format_ident!("{}", base_name),
+            |attr| format_ident!("{}_{}", base_name, attr.to_case(Case::Snake)),
+        )
     }
 
     pub fn message_name_literal(&self) -> Literal {
         Literal::string(&self.name)
     }
 
+    pub fn maybe_attribute_name_literal(&self) -> TokenStream {
+        self.attribute_name.as_ref().map_or_else(
+            || quote::quote!(None),
+            |name| {
+                let name_literal = Literal::string(name);
+                quote::quote!(Some(#name_literal))
+            },
+        )
+    }
+
     pub fn vars(&self) -> BTreeSet<&Var> {
         self.vars.iter().collect()
+    }
+
+    pub fn has_attrs(&self) -> bool {
+        self.attrs.is_some()
     }
 
     pub fn attrs(&self) -> BTreeSet<&Message> {
@@ -77,15 +102,17 @@ impl<T: AsRef<str>> TryFrom<&ast::Message<T>> for Message {
 }
 
 fn extract_attributes<T: AsRef<str>>(
+    parent: &str,
     attributes: &[ast::Attribute<T>],
 ) -> Result<Option<BTreeSet<Message>>, Error> {
     if !attributes.is_empty() {
         let mut result = BTreeSet::new();
         for attr in attributes {
             let msg = Message {
-                name: attr.id.name.as_ref().to_string(),
+                name: parent.to_string(),
                 vars: extract_variables(Some(&attr.value))?,
                 attrs: None,
+                attribute_name: Some(attr.id.name.as_ref().to_string()),
             };
             result.insert(msg);
         }
@@ -162,6 +189,7 @@ fn parse_call_arguments<T: AsRef<str>>(
 #[cfg(test)]
 mod tests {
     use fluent_syntax::{ast, parser};
+    use quote::format_ident;
 
     use super::Message;
 
@@ -286,11 +314,13 @@ test =
 
         let mut attrs = msg.attrs().into_iter();
         let attr = attrs.next().unwrap();
-        assert_eq!("attr1", attr.name());
+        assert_eq!("test-attrs", attr.name());
         assert!(attr.vars().is_empty());
+        assert_eq!(format_ident!("test_attrs_attr_1"), attr.function_ident());
         let attr = attrs.next().unwrap();
-        assert_eq!("attr2", attr.name());
+        assert_eq!("test-attrs", attr.name());
         assert!(attr.vars().is_empty());
+        assert_eq!(format_ident!("test_attrs_attr_2"), attr.function_ident());
     }
 
     #[test]
@@ -306,11 +336,11 @@ test =
 
         let mut attrs = msg.attrs().into_iter();
         let attr = attrs.next().unwrap();
-        assert_eq!("attr1", attr.name());
+        assert_eq!("test-attrs", attr.name());
         assert_eq!(1, attr.vars().len());
         assert_eq!("baz", attr.vars().into_iter().next().unwrap().name);
         let attr = attrs.next().unwrap();
-        assert_eq!("attr2", attr.name());
+        assert_eq!("test-attrs", attr.name());
         assert!(attr.vars().is_empty());
     }
 }

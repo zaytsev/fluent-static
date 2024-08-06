@@ -145,6 +145,7 @@ mod tests {
                             .into_iter()
                             .collect(),
                             attrs: None,
+                            attribute_name: None,
                         }]
                         .into_iter()
                         .collect(),
@@ -160,6 +161,7 @@ mod tests {
                             .into_iter()
                             .collect(),
                             attrs: None,
+                            attribute_name: None,
                         }]
                         .into_iter()
                         .collect(),
@@ -181,6 +183,7 @@ mod tests {
                             .into_iter()
                             .collect(),
                             attrs: None,
+                            attribute_name: None,
                         }]
                         .into_iter()
                         .collect(),
@@ -196,6 +199,7 @@ mod tests {
                             .into_iter()
                             .collect(),
                             attrs: None,
+                            attribute_name: None,
                         }]
                         .into_iter()
                         .collect(),

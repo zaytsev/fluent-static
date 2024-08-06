@@ -70,11 +70,12 @@ impl FunctionPerMessageCodeGenerator {
 fn message_function_definition(msg: &Message, delegate_fn: &Ident) -> TokenStream {
     let function_ident = msg.function_ident();
     let message_name_literal = msg.message_name_literal();
+    let maybe_attribute_literal = msg.maybe_attribute_name_literal();
     let msg_total_vars = msg.vars().len();
     if msg_total_vars == 0 {
         quote! {
             pub fn #function_ident(lang_id: impl AsRef<str>) -> Message<'static> {
-                #delegate_fn(lang_id.as_ref(), #message_name_literal, None)
+                #delegate_fn(lang_id.as_ref(), #message_name_literal, #maybe_attribute_literal, None)
                     .expect("Not fallible without variables; qed")
             }
         }
@@ -98,7 +99,7 @@ fn message_function_definition(msg: &Message, delegate_fn: &Ident) -> TokenStrea
             pub fn #function_ident<'a>(lang_id: impl AsRef<str>, #(#function_args: impl Into<FluentValue<'a>>),*) -> Result<Message<'static>, FluentError> {
                 let mut args = FluentArgs::with_capacity(#capacity);
                 #(#fluent_args)*
-                #delegate_fn(lang_id.as_ref(), #message_name_literal, Some(&args))
+                #delegate_fn(lang_id.as_ref(), #message_name_literal, #maybe_attribute_literal, Some(&args))
             }
         }
     }
@@ -116,30 +117,29 @@ fn message_functions_definitions(
     Ok(language_bundle
         .messages()
         .into_iter()
+        .flat_map(common::expand_message_attributes)
         .map(|msg| message_function_definition(msg, format_message_name))
         .collect())
 }
 
 #[cfg(test)]
 mod test {
+    use proc_macro2::Literal;
     use quote::quote;
 
     use crate::{bundle::MessageBundle, codegen::CodeGenerator};
 
     #[test]
     fn codegen() {
+        let resource_en = include_str!("../../test/bundle_en.ftl");
+        let resource_en_uk = include_str!("../../test/bundle_en-UK.ftl");
+
         let message_bundle = MessageBundle::create(
             "messages",
             "test/messages.ftl",
             vec![
-                (
-                    "en".to_string(),
-                    "test=Test message\ntest-args1=Hello { $name }".to_string(),
-                ),
-                (
-                    "en-UK".to_string(),
-                    "test=UK message\ntest-args1=Greetings { $name }".to_string(),
-                ),
+                ("en".to_string(), resource_en.to_string()),
+                ("en-UK".to_string(), resource_en_uk.to_string()),
             ],
         )
         .unwrap();
@@ -147,6 +147,9 @@ mod test {
         let actual = super::FunctionPerMessageCodeGenerator::new("en")
             .generate(&message_bundle)
             .unwrap();
+
+        let resource_en_literal = Literal::string(resource_en);
+        let resource_en_uk_literal = Literal::string(resource_en_uk);
 
         let expected = quote! {
             pub mod test {
@@ -158,7 +161,7 @@ mod test {
 
                     static SUPPORTED_LANGUAGES: &[&str] = &["en", "en-UK"];
 
-                    static EN_RESOURCE: &str = "test=Test message\ntest-args1=Hello { $name }";
+                    static EN_RESOURCE: &str = #resource_en_literal;
                     static EN_BUNDLE: Lazy<FluentBundle<FluentResource>> = Lazy::new(|| {
                         let lang_id = fluent_static::unic_langid::langid!("en");
                         let mut bundle: FluentBundle<FluentResource> = FluentBundle::new_concurrent(vec![lang_id]);
@@ -166,7 +169,7 @@ mod test {
                         bundle
                     });
 
-                    static EN_UK_RESOURCE: &str = "test=UK message\ntest-args1=Greetings { $name }";
+                    static EN_UK_RESOURCE: &str = #resource_en_uk_literal;
                     static EN_UK_BUNDLE: Lazy<FluentBundle<FluentResource>> = Lazy::new(|| {
                         let lang_id = fluent_static::unic_langid::langid!("en-UK");
                         let mut bundle: FluentBundle<FluentResource> = FluentBundle::new_concurrent(vec![lang_id]);
@@ -185,11 +188,16 @@ mod test {
                         & EN_BUNDLE
                     }
 
-                    fn format_message(lang_id: &str, message_id: &str, args: Option<&FluentArgs>) -> Result<Message<'static>, FluentError> {
+                    fn format_message(lang_id: &str, message_id: &str, attr: Option<&str>, args: Option<&FluentArgs>) -> Result<Message<'static>, FluentError> {
                         let bundle = get_bundle(lang_id.as_ref());
                         let msg = bundle.get_message(message_id).expect("Message not found");
+                        let pattern = if let Some(attr) = attr {
+                            msg.get_attribute(attr).unwrap().value()
+                        } else {
+                            msg.value().unwrap()
+                        };
                         let mut errors = vec![];
-                        let result = Message::new(bundle.format_pattern(&msg.value().unwrap(), args, &mut errors));
+                        let result = Message::new(bundle.format_pattern(pattern, args, &mut errors));
                         if errors.is_empty() {
                             Ok(result)
                         } else {
@@ -198,14 +206,24 @@ mod test {
                     }
 
                     pub fn test(lang_id: impl AsRef<str>) -> Message<'static> {
-                        format_message(lang_id.as_ref(), "test", None)
+                        format_message(lang_id.as_ref(), "test", None, None)
+                            .expect("Not fallible without variables; qed")
+                    }
+
+                    pub fn test_attr_1(lang_id: impl AsRef<str>) -> Message<'static> {
+                        format_message(lang_id.as_ref(), "test", Some("attr1"), None)
+                            .expect("Not fallible without variables; qed")
+                    }
+
+                    pub fn test_attr_2(lang_id: impl AsRef<str>) -> Message<'static> {
+                        format_message(lang_id.as_ref(), "test", Some("attr2"), None)
                             .expect("Not fallible without variables; qed")
                     }
 
                     pub fn test_args_1<'a>(lang_id: impl AsRef<str>, name: impl Into<FluentValue<'a>>) -> Result<Message<'static>, FluentError> {
                         let mut args = FluentArgs::with_capacity(1);
                         args.set("name", name);
-                        format_message(lang_id.as_ref(), "test-args1", Some(&args))
+                        format_message(lang_id.as_ref(), "test-args1", None, Some(&args))
                     }
                 }
             }
