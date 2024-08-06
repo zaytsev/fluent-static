@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeSet,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
 
@@ -9,13 +9,17 @@ use proc_macro2::Literal;
 use quote::format_ident;
 use syn::Ident;
 
-use crate::{message::Message, Error};
+use crate::{
+    error::MessageValidationErrorEntry,
+    message::{Message, NormalizedMessage},
+    Error,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MessageBundle {
     pub name: String,
     pub path: PathBuf,
-    pub langs: Vec<LanguageBundle>,
+    pub language_bundles: Vec<LanguageBundle>,
 }
 
 impl MessageBundle {
@@ -24,48 +28,76 @@ impl MessageBundle {
         path: impl AsRef<Path>,
         language_resource: Vec<(String, String)>,
     ) -> Result<Self, Error> {
-        let langs = language_resource
+        let bundles: Vec<LanguageBundle> = language_resource
             .into_iter()
-            .map(|(lang, resource)| LanguageBundle::create(lang, resource))
+            .map(|(language, resource)| LanguageBundle::create(language, resource))
             .collect::<Result<Vec<LanguageBundle>, Error>>()?;
+
         Self {
             name: name.to_string(),
             path: path.as_ref().to_path_buf(),
-            langs,
+            language_bundles: bundles,
         }
         .validate()
     }
 
-    pub fn get_language_bundle(&self, lang: &str) -> Option<&LanguageBundle> {
-        self.langs.iter().find(|bundle| bundle.language() == lang)
-    }
-
     fn validate(self) -> Result<Self, Error> {
-        let mut result = vec![];
-        for i in 0..self.langs.len() {
-            for j in i + 1..self.langs.len() {
-                let this = &self.langs[i];
-                let that = &self.langs[j];
-                let diff = this.diff(&that);
-                if !diff.is_empty() {
-                    let names: Vec<String> =
-                        diff.into_iter().map(|msg| msg.name().to_string()).collect();
-                    result.push((
-                        this.language().to_string(),
-                        that.language.to_string(),
-                        names,
-                    ));
+        let all_langs = self
+            .language_bundles
+            .iter()
+            .map(|bundle| bundle.language.as_str())
+            .collect::<HashSet<&str>>();
+
+        let validation_errors = self
+            .language_bundles
+            .iter()
+            .flat_map(|bundle| {
+                bundle
+                    .messages()
+                    .into_iter()
+                    .map(|msg| (bundle.language.as_str(), msg.normalize()))
+            })
+            .fold(
+                HashMap::<NormalizedMessage, HashSet<&str>>::new(),
+                |mut acc, (lang, msg)| {
+                    acc.entry(msg).or_insert_with(HashSet::new).insert(lang);
+                    acc
+                },
+            )
+            .into_iter()
+            .filter_map(|(message, langs)| {
+                if langs.len() != self.language_bundles.len() {
+                    let undefined = all_langs
+                        .difference(&langs)
+                        .map(|lang| lang.to_string())
+                        .collect();
+                    let defined = langs.into_iter().map(String::from).collect();
+                    Some(MessageValidationErrorEntry {
+                        message,
+                        defined_in_languages: defined,
+                        undefined_in_languages: undefined,
+                    })
+                } else {
+                    None
                 }
-            }
-        }
-        if !result.is_empty() {
+            })
+            .collect::<Vec<MessageValidationErrorEntry>>();
+
+        if !validation_errors.is_empty() {
             Err(Error::MessageBundleValidationError {
-                bundle: self.path.to_string_lossy().to_string(),
-                mismatching_messages: result,
+                bundle: self.name,
+                entries: validation_errors,
+                path: self.path.to_string_lossy().to_string(),
             })
         } else {
             Ok(self)
         }
+    }
+
+    pub fn get_language_bundle(&self, lang: &str) -> Option<&LanguageBundle> {
+        self.language_bundles
+            .iter()
+            .find(|bundle| bundle.language() == lang)
     }
 
     pub fn name(&self) -> &str {
@@ -81,7 +113,7 @@ impl MessageBundle {
     }
 
     pub fn language_literals(&self) -> Vec<Literal> {
-        self.langs
+        self.language_bundles
             .iter()
             .map(|lang| Literal::string(lang.language()))
             .collect()
@@ -92,7 +124,7 @@ impl MessageBundle {
 pub struct LanguageBundle {
     pub(crate) language: String,
     pub(crate) resource: String,
-    pub(crate) messages: BTreeSet<Message>,
+    pub(crate) messages: Vec<Message>,
 }
 
 impl LanguageBundle {
@@ -105,12 +137,11 @@ impl LanguageBundle {
         })
     }
 
-    fn parse(content: &str) -> Result<BTreeSet<Message>, Error> {
-        let resource = fluent_syntax::parser::parse(content)
+    fn parse(content: &str) -> Result<Vec<Message>, Error> {
+        let ast = fluent_syntax::parser::parse(content)
             .map_err(|(_, errors)| Error::FluentParserError { errors })?;
 
-        resource
-            .body
+        ast.body
             .iter()
             .filter_map(|entry| {
                 if let ast::Entry::Message(message) = entry {
@@ -123,11 +154,8 @@ impl LanguageBundle {
             .collect()
     }
 
-    pub fn messages(&self) -> BTreeSet<&Message> {
+    pub fn messages(&self) -> Vec<&Message> {
         self.messages.iter().collect()
-    }
-    pub fn diff<'a>(&'a self, other: &'a LanguageBundle) -> Vec<&'a Message> {
-        self.messages.difference(&other.messages).collect()
     }
 
     pub fn language(&self) -> &str {

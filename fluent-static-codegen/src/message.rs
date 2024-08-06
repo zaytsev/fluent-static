@@ -28,12 +28,12 @@ impl Var {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Message {
-    pub(crate) name: String,
-    pub(crate) attribute_name: Option<String>,
-    pub(crate) vars: BTreeSet<Var>,
-    pub(crate) attrs: Option<BTreeSet<Message>>,
+    pub name: String,
+    pub attribute_name: Option<String>,
+    pub vars: Vec<Var>,
+    pub attrs: Option<Vec<Message>>,
 }
 
 impl Message {
@@ -76,7 +76,7 @@ impl Message {
         )
     }
 
-    pub fn vars(&self) -> BTreeSet<&Var> {
+    pub fn vars(&self) -> Vec<&Var> {
         self.vars.iter().collect()
     }
 
@@ -84,11 +84,23 @@ impl Message {
         self.attrs.is_some()
     }
 
-    pub fn attrs(&self) -> BTreeSet<&Message> {
+    pub fn attrs(&self) -> Vec<&Message> {
         if let Some(attrs) = self.attrs.as_ref() {
             attrs.iter().collect()
         } else {
-            BTreeSet::default()
+            Vec::default()
+        }
+    }
+
+    pub(crate) fn normalize(&self) -> NormalizedMessage {
+        NormalizedMessage {
+            name: self.name.clone(),
+            attribute_name: self.attribute_name.clone(),
+            vars: self.vars.iter().cloned().collect(),
+            attrs: self
+                .attrs
+                .as_ref()
+                .map(|attrs| attrs.iter().map(Message::normalize).collect()),
         }
     }
 }
@@ -104,9 +116,9 @@ impl<T: AsRef<str>> TryFrom<&ast::Message<T>> for Message {
 fn extract_attributes<T: AsRef<str>>(
     parent: &str,
     attributes: &[ast::Attribute<T>],
-) -> Result<Option<BTreeSet<Message>>, Error> {
+) -> Result<Option<Vec<Message>>, Error> {
     if !attributes.is_empty() {
-        let mut result = BTreeSet::new();
+        let mut result = Vec::new();
         for attr in attributes {
             let msg = Message {
                 name: parent.to_string(),
@@ -114,7 +126,7 @@ fn extract_attributes<T: AsRef<str>>(
                 attrs: None,
                 attribute_name: Some(attr.id.name.as_ref().to_string()),
             };
-            result.insert(msg);
+            result.push(msg);
         }
         Ok(Some(result))
     } else {
@@ -122,10 +134,8 @@ fn extract_attributes<T: AsRef<str>>(
     }
 }
 
-fn extract_variables<T: AsRef<str>>(
-    value: Option<&ast::Pattern<T>>,
-) -> Result<BTreeSet<Var>, Error> {
-    let mut result = BTreeSet::new();
+fn extract_variables<T: AsRef<str>>(value: Option<&ast::Pattern<T>>) -> Result<Vec<Var>, Error> {
+    let mut result = Vec::new();
     if let Some(pattern) = value {
         for element in pattern.elements.iter() {
             if let ast::PatternElement::Placeable { expression } = element {
@@ -186,6 +196,14 @@ fn parse_call_arguments<T: AsRef<str>>(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NormalizedMessage {
+    pub name: String,
+    pub attribute_name: Option<String>,
+    pub vars: BTreeSet<Var>,
+    pub attrs: Option<BTreeSet<NormalizedMessage>>,
+}
+
 #[cfg(test)]
 mod tests {
     use fluent_syntax::{ast, parser};
@@ -236,8 +254,22 @@ test =
         assert_eq!("test", msg.name());
         assert_eq!(2, msg.vars().len());
         let mut vars = msg.vars().into_iter();
-        assert_eq!("baz", vars.next().unwrap().name);
         assert_eq!("foo", vars.next().unwrap().name);
+        assert_eq!("baz", vars.next().unwrap().name);
+    }
+
+    #[test]
+    fn message_variables_order() {
+        let resource = "test = foo { $b } { $a }";
+        let msg = parse(resource).into_iter().next().unwrap();
+
+        let msg = Message::parse(&msg).unwrap();
+
+        assert_eq!("test", msg.name());
+        assert_eq!(2, msg.vars().len());
+        let mut vars = msg.vars().into_iter();
+        assert_eq!("b", &vars.next().unwrap().name);
+        assert_eq!("a", &vars.next().unwrap().name);
     }
 
     #[test]
@@ -316,11 +348,11 @@ test =
         let attr = attrs.next().unwrap();
         assert_eq!("test-attrs", attr.name());
         assert!(attr.vars().is_empty());
-        assert_eq!(format_ident!("test_attrs_attr_1"), attr.function_ident());
+        assert_eq!(format_ident!("test_attrs_attr_2"), attr.function_ident());
         let attr = attrs.next().unwrap();
         assert_eq!("test-attrs", attr.name());
         assert!(attr.vars().is_empty());
-        assert_eq!(format_ident!("test_attrs_attr_2"), attr.function_ident());
+        assert_eq!(format_ident!("test_attrs_attr_1"), attr.function_ident());
     }
 
     #[test]
@@ -337,10 +369,10 @@ test =
         let mut attrs = msg.attrs().into_iter();
         let attr = attrs.next().unwrap();
         assert_eq!("test-attrs", attr.name());
-        assert_eq!(1, attr.vars().len());
-        assert_eq!("baz", attr.vars().into_iter().next().unwrap().name);
+        assert!(attr.vars().is_empty());
         let attr = attrs.next().unwrap();
         assert_eq!("test-attrs", attr.name());
-        assert!(attr.vars().is_empty());
+        assert_eq!(1, attr.vars().len());
+        assert_eq!("baz", attr.vars().into_iter().next().unwrap().name);
     }
 }

@@ -1,4 +1,6 @@
-use std::path::PathBuf;
+use std::{collections::BTreeSet, path::PathBuf};
+
+use crate::message::NormalizedMessage;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -28,6 +30,14 @@ pub enum Error {
     #[error("Message bundle {bundle} integrity validation failed")]
     MessageBundleValidationError {
         bundle: String,
-        mismatching_messages: Vec<(String, String, Vec<String>)>,
+        path: String,
+        entries: Vec<MessageValidationErrorEntry>,
     },
+}
+
+#[derive(Debug)]
+pub struct MessageValidationErrorEntry {
+    pub message: NormalizedMessage,
+    pub defined_in_languages: BTreeSet<String>,
+    pub undefined_in_languages: BTreeSet<String>,
 }

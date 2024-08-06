@@ -3,7 +3,7 @@ use crate::{bundle::MessageBundle, codegen::CodeGenerator, error::Error};
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
 };
@@ -26,18 +26,62 @@ pub fn generate(
         resources.push((path, content));
     }
 
-    let message_bundle_generated_code = create_message_bundles(resources)?
-        .iter()
-        .map(|bundle| code_generator.generate(bundle))
-        .collect::<Result<Vec<TokenStream>, Error>>()?;
+    let mut generated_code: Vec<TokenStream> = vec![];
+    let mut errors = vec![];
 
-    Ok(quote! {
-        #(#message_bundle_generated_code)*
+    for message_bundle_result in create_message_bundles(resources)? {
+        match message_bundle_result {
+            Ok(message_bundle) => match code_generator.generate(&message_bundle) {
+                Ok(tokens) => generated_code.push(tokens),
+                Err(e) => {
+                    println!("cargo:error={}", e.to_string());
+                    errors.push(e);
+                }
+            },
+            Err(Error::MessageBundleValidationError {
+                bundle,
+                path,
+                entries,
+            }) => {
+                let langs = |s: &BTreeSet<String>| {
+                    s.iter()
+                        .map(|s| s.as_str())
+                        .collect::<Vec<&str>>()
+                        .join(", ")
+                };
+                for entry in &entries {
+                    let defined = langs(&entry.defined_in_languages);
+                    let undefined = langs(&entry.undefined_in_languages);
+                    println!("cargo:error=Localization bundle '{}' {} consistency validation error: Message '{}' is defined for {} but not for {}", 
+                        bundle, path, entry.message.name, defined, undefined);
+                }
+
+                errors.push(Error::MessageBundleValidationError {
+                    bundle,
+                    path,
+                    entries,
+                });
+            }
+            Err(e) => {
+                println!("cargo:error={}", e.to_string());
+                errors.push(e);
+            }
+        }
     }
-    .to_string())
+
+    if errors.is_empty() {
+        Ok(quote! {
+            #(#generated_code)*
+        }
+        .to_string())
+    } else {
+        Err(errors.into_iter().next().unwrap())
+    }
 }
 
-fn create_message_bundles(resources: Vec<(PathBuf, String)>) -> Result<Vec<MessageBundle>, Error> {
+fn create_message_bundles(
+    resources: Vec<(PathBuf, String)>,
+) -> Result<Vec<Result<MessageBundle, Error>>, Error> {
     let bundles_by_path = resources.into_iter().try_fold(
         BTreeMap::<PathBuf, Vec<(String, String)>>::new(),
         |mut acc,
@@ -59,7 +103,7 @@ fn create_message_bundles(resources: Vec<(PathBuf, String)>) -> Result<Vec<Messa
         },
     )?;
 
-    bundles_by_path
+    Ok(bundles_by_path
         .into_iter()
         .map(|(bundle_path, lang_resources)| {
             let bundle_name = bundle_path
@@ -70,7 +114,7 @@ fn create_message_bundles(resources: Vec<(PathBuf, String)>) -> Result<Vec<Messa
 
             MessageBundle::create(&bundle_name, &bundle_path, lang_resources)
         })
-        .collect()
+        .collect())
 }
 
 fn is_fluent_resource(path: &PathBuf) -> bool {
@@ -129,11 +173,14 @@ mod tests {
     fn create_message_bundles() {
         let resources = make_fluent_resources();
 
-        let expected = vec![
-            MessageBundle {
+        let bundles = super::create_message_bundles(resources.clone()).unwrap();
+        let mut actual = bundles.iter();
+
+        assert_eq!(
+            &MessageBundle {
                 name: "test".to_string(),
                 path: PathBuf::from_str("extra/test.ftl").unwrap(),
-                langs: vec![
+                language_bundles: vec![
                     LanguageBundle {
                         language: "en".to_string(),
                         resource: resources[2].1.clone(),
@@ -168,10 +215,14 @@ mod tests {
                     },
                 ],
             },
-            MessageBundle {
+            actual.next().unwrap().as_ref().unwrap(),
+        );
+
+        assert_eq!(
+            &MessageBundle {
                 name: "main".to_string(),
                 path: PathBuf::from_str("main.ftl").unwrap(),
-                langs: vec![
+                language_bundles: vec![
                     LanguageBundle {
                         language: "en".to_string(),
                         resource: resources[0].1.clone(),
@@ -206,10 +257,7 @@ mod tests {
                     },
                 ],
             },
-        ];
-
-        let actual = super::create_message_bundles(resources.clone()).unwrap();
-
-        assert_eq!(expected, actual);
+            actual.next().unwrap().as_ref().unwrap(),
+        );
     }
 }

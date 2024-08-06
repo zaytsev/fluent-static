@@ -323,6 +323,13 @@ mod test {
                             args.set("name", name);
                             internal_message_format(self.bundle, "test-args1", None, Some(&args))
                         }
+
+                        pub fn test_order<'a>(&self, zzz: impl Into<FluentValue<'a>>, aaa: impl Into<FluentValue<'a>>) -> Result<Message<'static>, FluentError> {
+                            let mut args = FluentArgs::with_capacity(2);
+                            args.set("zzz", zzz);
+                            args.set("aaa", aaa);
+                            internal_message_format(self.bundle, "test-order", None, Some(&args))
+                        }
                     }
 
                 }

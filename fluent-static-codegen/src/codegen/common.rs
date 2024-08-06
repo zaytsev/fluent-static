@@ -5,7 +5,7 @@ use crate::{bundle::MessageBundle, message::Message, Error};
 use quote::quote;
 
 pub fn language_bundle_definitions(bundle: &MessageBundle) -> Vec<TokenStream> {
-    bundle.langs.iter().map(|language_bundle| {
+    bundle.language_bundles.iter().map(|language_bundle| {
             let lang_id = language_bundle.language();
             let resource_ident = language_bundle.static_resource_ident();
             let bundle_ident = language_bundle.static_bundle_ident();
@@ -29,7 +29,7 @@ pub fn language_bundle_lookup_function_definition(
     let language_bundle_mapping = bundle
         .language_literals()
         .into_iter()
-        .zip(bundle.langs.iter())
+        .zip(bundle.language_bundles.iter())
         .map(|(literal, language_bundle)| {
             let resource_ident = language_bundle.static_bundle_ident();
             quote! {

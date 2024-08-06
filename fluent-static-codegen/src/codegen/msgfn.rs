@@ -225,6 +225,13 @@ mod test {
                         args.set("name", name);
                         format_message(lang_id.as_ref(), "test-args1", None, Some(&args))
                     }
+
+                    pub fn test_order<'a>(lang_id: impl AsRef<str>, zzz: impl Into<FluentValue<'a>>, aaa: impl Into<FluentValue<'a>>) -> Result<Message<'static>, FluentError> {
+                        let mut args = FluentArgs::with_capacity(2);
+                        args.set("zzz", zzz);
+                        args.set("aaa", aaa);
+                        format_message(lang_id.as_ref(), "test-order", None, Some(&args))
+                    }
                 }
             }
         };
