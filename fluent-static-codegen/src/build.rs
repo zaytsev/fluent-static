@@ -12,11 +12,12 @@ pub fn generate(
     root_dir: impl AsRef<Path>,
     code_generator: impl CodeGenerator,
 ) -> Result<String, Error> {
+    println!("cargo:rerun-if-changed={}", root_dir.as_ref().to_string_lossy());
+
     let paths = list_fluent_resources(&root_dir)?;
 
     let mut resources = vec![];
     for res_path in paths {
-        println!("cargo:rerun-if-changed={}", res_path.to_string_lossy());
         let path = res_path.strip_prefix(root_dir.as_ref())?.into();
         let content = fs::read_to_string(res_path)?;
         resources.push((path, content));
