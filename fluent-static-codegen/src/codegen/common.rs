@@ -42,7 +42,7 @@ pub fn language_bundle_lookup_function_definition(
         .ok_or_else(|| Error::FallbackLanguageNotFound(default_language.to_string()))?;
 
     Ok(quote! {
-        fn get_bundle<'a, 'b>(lang: &'a str) -> &'b FluentBundle<FluentResource> {
+        fn get_bundle(lang: &str) -> &'static FluentBundle<FluentResource> {
             for common_lang in fluent_static::accept_language::intersection(lang, SUPPORTED_LANGUAGES) {
                 match common_lang.as_str() {
                     #(#language_bundle_mapping),* ,
@@ -56,7 +56,7 @@ pub fn language_bundle_lookup_function_definition(
 
 pub fn format_message_function_definition(fn_name: &Ident) -> TokenStream {
     quote! {
-        fn #fn_name<'a, 'b>(lang_id: &str, message_id: &str, args: Option<&'a FluentArgs>) -> Result<Message<'b>, FluentError> {
+        fn #fn_name(lang_id: &str, message_id: &str, args: Option<&FluentArgs>) -> Result<Message<'static>, FluentError> {
             let bundle = get_bundle(lang_id.as_ref());
             let msg = bundle.get_message(message_id).expect("Message not found");
             let mut errors = vec![];

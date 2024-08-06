@@ -110,7 +110,7 @@ impl CodeGenerator for MessageBundleCodeGenerator {
 
 pub fn format_message_function_definition(fn_name: &Ident) -> TokenStream {
     quote! {
-        fn #fn_name<'a, 'b>(bundle: &'static FluentBundle<FluentResource>, message_id: &str, args: Option<&'a FluentArgs>) -> Result<Message<'b>, FluentError> {
+        fn #fn_name(bundle: &'static FluentBundle<FluentResource>, message_id: &str, args: Option<&FluentArgs>) -> Result<Message<'static>, FluentError> {
             let msg = bundle.get_message(message_id).expect("Message not found");
             let mut errors = vec![];
             let result = Message::new(bundle.format_pattern(&msg.value().unwrap(), args, &mut errors));
@@ -129,8 +129,9 @@ fn message_function_definition(msg: &Message, delegate_fn: &Ident) -> TokenStrea
     let msg_total_vars = msg.vars().len();
     if msg_total_vars == 0 {
         quote! {
-            pub fn #function_ident<'b>(&self) -> Result<Message<'b>, FluentError> {
+            pub fn #function_ident(&self) -> Message<'static> {
                 #delegate_fn(self.bundle, #message_name_literal, None)
+                    .expect("Not fallible without variables; qed")
             }
         }
     } else {
@@ -150,7 +151,7 @@ fn message_function_definition(msg: &Message, delegate_fn: &Ident) -> TokenStrea
             .unzip();
         let capacity = Literal::usize_unsuffixed(msg_total_vars);
         quote! {
-            pub fn #function_ident<'a, 'b>(&self, #(#function_args: impl Into<FluentValue<'a>>),*) -> Result<Message<'b>, FluentError> {
+            pub fn #function_ident<'a>(&self, #(#function_args: impl Into<FluentValue<'a>>),*) -> Result<Message<'static>, FluentError> {
                 let mut args = FluentArgs::with_capacity(#capacity);
                 #(#fluent_args)*
                 #delegate_fn(self.bundle, #message_name_literal, Some(&args))
@@ -230,7 +231,7 @@ mod test {
                         bundle
                     });
 
-                    fn get_bundle<'a, 'b>(lang: &'a str) -> &'b FluentBundle<FluentResource> {
+                    fn get_bundle(lang: &str) -> &'static FluentBundle<FluentResource> {
                         for common_lang in fluent_static::accept_language::intersection(lang, SUPPORTED_LANGUAGES) {
                             match common_lang.as_str() {
                                 "en" => return &EN_BUNDLE,
@@ -241,7 +242,7 @@ mod test {
                         & EN_BUNDLE
                     }
 
-                    fn internal_message_format<'a, 'b>(bundle: &'static FluentBundle<FluentResource>, message_id: &str, args: Option<&'a FluentArgs>) -> Result<Message<'b>, FluentError> {
+                    fn internal_message_format(bundle: &'static FluentBundle<FluentResource>, message_id: &str, args: Option<&FluentArgs>) -> Result<Message<'static>, FluentError> {
                         let msg = bundle.get_message(message_id).expect("Message not found");
                         let mut errors = vec![];
                         let result = Message::new(bundle.format_pattern(&msg.value().unwrap(), args, &mut errors));
@@ -289,11 +290,12 @@ mod test {
                             &self.lang
                         }
 
-                        pub fn test<'b>(&self) -> Result<Message<'b>, FluentError> {
+                        pub fn test(&self) -> Message<'static> {
                             internal_message_format(self.bundle, "test", None)
+                                .expect("Not fallible without variables; qed")
                         }
 
-                        pub fn test_args_1<'a, 'b>(&self, name: impl Into<FluentValue<'a>>) -> Result<Message<'b>, FluentError> {
+                        pub fn test_args_1<'a>(&self, name: impl Into<FluentValue<'a>>) -> Result<Message<'static>, FluentError> {
                             let mut args = FluentArgs::with_capacity(1);
                             args.set("name", name);
                             internal_message_format(self.bundle, "test-args1", Some(&args))
