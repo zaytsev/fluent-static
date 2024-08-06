@@ -12,7 +12,10 @@ pub fn generate(
     root_dir: impl AsRef<Path>,
     code_generator: impl CodeGenerator,
 ) -> Result<String, Error> {
-    println!("cargo:rerun-if-changed={}", root_dir.as_ref().to_string_lossy());
+    println!(
+        "cargo:rerun-if-changed={}",
+        root_dir.as_ref().to_string_lossy()
+    );
 
     let paths = list_fluent_resources(&root_dir)?;
 

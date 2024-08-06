@@ -2,6 +2,17 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.3.0 - 2024-08-06
+#### Bug Fixes
+- Re-run codegen on any changes in resource directory - (431da6d) - Nazar Mokrynskyi
+#### Features
+- **(codegen)** Add support for message attributes - (73ac722) - *zaytsev*
+- **(codegen)** Simplify generated API  - (340fc6e) - Nazar Mokrynskyi
+#### Miscellaneous Chores
+- Bump flake inputs - (ac85eb8) - zaytsev
+
+- - -
+
 ## v0.2.4 - 2024-06-06
 #### Documentation
 - Update crate versions referenced in README - (88bc2f5) - zaytsev
