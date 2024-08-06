@@ -15,7 +15,7 @@ async fn handler(RequestLanguage(msgs): RequestLanguage<l10n::messages::Messages
         html {
             head {
                 title {
-                    (msgs.page_title().unwrap())
+                    (msgs.page_title())
                 }
             }
             body {
