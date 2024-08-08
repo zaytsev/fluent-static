@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 
 use convert_case::{Case, Casing};
 use fluent_syntax::ast;
@@ -136,10 +136,16 @@ fn extract_attributes<T: AsRef<str>>(
 
 fn extract_variables<T: AsRef<str>>(value: Option<&ast::Pattern<T>>) -> Result<Vec<Var>, Error> {
     let mut result = Vec::new();
+    let mut unique_vars = HashSet::new();
     if let Some(pattern) = value {
         for element in pattern.elements.iter() {
             if let ast::PatternElement::Placeable { expression } = element {
-                result.extend(parse_expression(expression)?)
+                let vars = parse_expression(expression)?;
+                for var in vars {
+                    if unique_vars.insert(var.clone()) {
+                        result.push(var);
+                    }
+                }
             }
         }
     }
@@ -208,6 +214,8 @@ pub struct NormalizedMessage {
 mod tests {
     use fluent_syntax::{ast, parser};
     use quote::format_ident;
+
+    use crate::message::Var;
 
     use super::Message;
 
@@ -374,5 +382,24 @@ test =
         assert_eq!("test-attrs", attr.name());
         assert_eq!(1, attr.vars().len());
         assert_eq!("baz", attr.vars().into_iter().next().unwrap().name);
+    }
+
+    #[test]
+    fn regression_duplicate_parameters() {
+        let resource = "test-dupes = {$a} {$b} {$a}";
+        let msg = parse(resource).into_iter().next().unwrap();
+        let msg = Message::parse(&msg).unwrap();
+        assert_eq!("test-dupes", msg.name());
+        assert_eq!(
+            vec![
+                Var {
+                    name: "a".to_string()
+                },
+                Var {
+                    name: "b".to_string()
+                }
+            ],
+            msg.vars
+        );
     }
 }
