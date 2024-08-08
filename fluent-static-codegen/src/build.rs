@@ -8,6 +8,23 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[macro_export]
+macro_rules! generate {
+    ($fluent_resource_root:expr, $generator:expr, $out_file:expr) => {{
+        if let Ok(src) = generate($fluent_resource_root, $generator) {
+            let out_dir =
+                env::var("OUT_DIR").expect("OUT_DIR environment variables is not defined");
+            let destination = Path::new(&out_dir)
+                .join("generated")
+                .join("fluent")
+                .join($out_file);
+            fs::create_dir_all(destination.parent().unwrap())
+                .expect("Error creating output directory");
+            fs::write(destination, src).expect("Error writing generated sources");
+        }
+    }};
+}
+
 pub fn generate(
     root_dir: impl AsRef<Path>,
     code_generator: impl CodeGenerator,
@@ -16,7 +33,6 @@ pub fn generate(
         "cargo:rerun-if-changed={}",
         root_dir.as_ref().to_string_lossy()
     );
-
     let paths = list_fluent_resources(&root_dir)?;
 
     let mut resources = vec![];

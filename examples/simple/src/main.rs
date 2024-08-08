@@ -3,7 +3,7 @@ fn main() {
 }
 
 mod l10n {
-    include!(concat!(env!("OUT_DIR"), "/l10n.rs"));
+    include!(concat!(env!("OUT_DIR"), "/generated/fluent/l10n.rs"));
 }
 
 #[cfg(test)]
