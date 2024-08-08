@@ -2,6 +2,31 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## fluent-static-v0.4.0 - 2024-08-08
+#### Features
+- Add macro to include generated source code - (d45d6d3) - zaytsev
+
+- - -
+
+## fluent-static-codegen-v0.4.0 - 2024-08-08
+#### Bug Fixes
+- Disable all features by default - (54f6a95) - zaytsev
+#### Build system
+- Allow independent releases of codegen and main lib - (ff60632) - zaytsev
+#### Documentation
+- Add readme to crates packages - (0e059da) - zaytsev
+#### Features
+- Make axum language extraction more flexible - (4d48033) - zaytsev
+- Add optional support for maud Render and axum accept-language extractor - (35fbb93) - zaytsev
+#### Miscellaneous Chores
+- **(version)** fluent-static-codegen-v0.4.0 - (97c33a8) - *zaytsev*
+- Add cargo package metadata - (8d7a5b2) - zaytsev
+- Initial commit - (bedb557) - zaytsev
+#### Refactoring
+- Refactor message function code generation - (7a11596) - zaytsev
+
+- - -
+
 ## fluent-static-codegen-v0.4.0 - 2024-08-08
 #### Build system
 - Allow independent releases of codegen and main lib - (ff60632) - zaytsev
