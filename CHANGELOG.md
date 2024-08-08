@@ -2,6 +2,46 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## fluent-static-codegen-v0.3.3 - 2024-08-08
+#### Bug Fixes
+- **(codegen)** Fix invalid code generated when variable occurs more than once - (956ba4e) - *zaytsev*
+#### Build system
+- Set explicit crates version - (f478eb1) - zaytsev
+#### Documentation
+- Add a bit more details to READMEs - (90169aa) - zaytsev
+#### Features
+- **(codegen)** Generate message functions for attributes - (4c56ef5) - *zaytsev*
+- Keep message functions variables order as in fluent resource - (6143b79) - zaytsev
+
+- - -
+
+## v0.3.0 - 2024-08-08
+#### Bug Fixes
+- Re-run codegen on any changes in resource directory - (431da6d) - Nazar Mokrynskyi
+#### Documentation
+- Add readme to crates packages - (0e059da) - zaytsev
+#### Features
+- **(codegen)** Add support for message attributes - (73ac722) - *zaytsev*
+- **(codegen)** Simplify generated API  - (340fc6e) - Nazar Mokrynskyi
+- **(codegen)** Add support for message, term and function references - (e9ac878) - *zaytsev*
+- New code generator: create message bundle structs - (79ff0ca) - zaytsev
+- Add compile time message bundle integrity check to prevent missing on incompatible messages - (2c633df) - zaytsev
+#### Miscellaneous Chores
+- **(version)** v0.3.0 - (3d245c6) - *zaytsev*
+- disable warning: unused import: `FluentValue` with translation without args - (7cb48f7) - AlbanMinassian
+- Add cargo package metadata - (8d7a5b2) - zaytsev
+- Rename generate crate - (c67fc1b) - zaytsev
+#### Performance Improvements
+- Detect language once on message struct creation - (74344a8) - zaytsev
+#### Refactoring
+- Refactor codegen - (10ea355) - zaytsev
+- Refactor message function code generation - (7a11596) - zaytsev
+- Reorganize codegen exports - (0d56aee) - zaytsev
+#### Tests
+- Ensure that multiline messages are supported - (9d81bb5) - zaytsev
+
+- - -
+
 ## v0.3.2 - 2024-08-08
 #### Bug Fixes
 - **(codegen)** Fix invalid code generated when variable occurs more than once - (956ba4e) - *zaytsev*
