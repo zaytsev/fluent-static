@@ -1,24 +1,33 @@
 tag_prefix = "v"
+
+monorepo_version_separator = "-"
+generate_mono_repository_global_tag = false
+
 ignore_merge_commits = true
+
 branch_whitelist = ["master", "main"]
-pre_bump_hooks = [
-  "cargo check",
+
+pre_bump_hooks = ["cargo check --workspace --release"]
+
+pre_package_bump_hooks = [
   "cargo test -- --test-threads 1",
   "cargo build --release",
   "cargo fmt --all",
   "cargo set-version {{version}}",
-  "sed -i \"s/\\(fluent-static = {\\s*version = \\\"\\){{latest}}\\(\\\"\\(,.*\\)\\?\\s*}\\)/\\1{{version}}\\2/g\" README.md",
-  "sed -i \"s/\\(fluent-static-codegen = {\\s*version = \\\"\\){{latest}}\\(\\\"\\(,.*\\)\\?\\s*}\\)/\\1{{version}}\\2/g\" README.md",
-  "git add Cargo.lock README.md",
+  "git add :/Cargo.lock",
 ]
 
-post_bump_hooks = [
-  "git push",
-  "git push --tags",
-  "cargo package",
-  "cargo publish -p fluent-static",
-  "cargo publish -p fluent-static-codegen",
-]
+# post_bump_hooks = ["git push", "git push --tags"]
+
+post_package_bump_hooks = ["cargo package"]
+
+[packages.fluent-static]
+path = "fluent-static"
+# post_bump_hooks = ["cargo publish -p fluent-static"]
+
+[packages.fluent-static-codegen]
+path = "fluent-static-codegen"
+# post_bump_hooks = ["cargo publish -p fluent-static-codegen"]
 
 [commit_types]
 bump = { changelog_title = "Dependency updates" }
