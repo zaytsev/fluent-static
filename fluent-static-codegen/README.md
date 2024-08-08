@@ -32,16 +32,7 @@ use fluent_static_codegen::{generate, FunctionPerMessageCodeGenerator};
 use std::{env, fs, path::Path};
 
 pub fn main() {
-    // use <project_root>/l10n as base path to search for Fluent resources
-    // generate rust function per each Fluent message
-    // use "en-US" Language ID as the default language
-    let src = generate("./l10n/", FunctionPerMessageCodeGenerator::new("en-US"))
-        .expect("Error generating message bindings");
-
-    let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
-    let destination = Path::new(&out_dir).join("l10n.rs");
-
-    fs::write(destination, src).expect("Error writing generated sources");
+    generate!("./l10n/", FunctionPerMessageCodeGenerator::new("en-US"), "l10n");
 }
   
 ```

@@ -42,13 +42,7 @@ use fluent_static_codegen::{generate, FunctionPerMessageCodeGenerator};
 use std::{env, fs, path::Path};
 
 pub fn main() {
-    let src = generate("./l10n/", FunctionPerMessageCodeGenerator::new("en-US"))
-        .expect("Error generating message bindings");
-
-    let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
-    let destination = Path::new(&out_dir).join("l10n.rs");
-
-    fs::write(destination, src).expect("Error writing generated sources");
+    generate!("./l10n/", FunctionPerMessageCodeGenerator::new("en-US"), "l10n");
 }
 ```
 
@@ -64,7 +58,7 @@ fn main() {
 }
 
 mod l10n {
-    include!(concat!(env!("OUT_DIR"), "/l10n.rs"));
+    fluent_static::include_source!("l10n");
 }
 ```
 
@@ -96,7 +90,7 @@ async fn hello_l10n(RequestLanguage(msgs): RequestLanguage<l10n::messages::Messa
 }
 
 mod l10n {
-    include!(concat!(env!("OUT_DIR"), "/l10n.rs"));
+    fluent_static::include_source!("l10n");
 }
 ```
 
