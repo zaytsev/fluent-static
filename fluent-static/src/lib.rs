@@ -9,6 +9,13 @@ pub mod fluent_bundle {
     pub use fluent_bundle::{FluentArgs, FluentError, FluentMessage, FluentResource, FluentValue};
 }
 
+#[macro_export]
+macro_rules! include_source {
+    ($name:expr) => {
+        include!(concat!(env!("OUT_DIR"), "/generated/fluent/", $name));
+    };
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Message<'a>(Cow<'a, str>);
 
