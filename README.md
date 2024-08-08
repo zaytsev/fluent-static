@@ -19,10 +19,10 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-fluent-static = { version = "0.3.2" }
+fluent-static = "*"
 
 [build-dependencies]
-fluent-static-codegen = {version = "0.3.2" }
+fluent-static-codegen = "*"
 ```
 
 ## Usage
@@ -31,26 +31,19 @@ To integrate `fluent-static` into your Rust project, follow these steps:
 
 ### Step 1: Fluent Resources
 
-Ensure your Fluent resources are placed under a specific directory, e.g., `./l10n/`, and include at least one localization, e.g., `en_US.ftl`.
+Fluent resources should follow naming convention: `<resources_root>/<language_id>/<bundle_name>.ftl`, e.g. `l10n/en-US/messages.ftl`
 
-### Step 2: Build Script Setup
+### Step 2: Configure Code Generator
 
-Create a `build.rs` file in your project root if it does not exist, and use the following template to generate Rust bindings for your Fluent files:
+Create a `build.rs` file in your project root if it does not exist, and use the following template to generate Rust bindings for your Fluent resources:
 
 ```rust
 use fluent_static_codegen::{generate, FunctionPerMessageCodeGenerator};
 use std::{env, fs, path::Path};
 
 pub fn main() {
-    // fluent file -> rust module
-    // fluent message -> rust function
     let src = generate("./l10n/", FunctionPerMessageCodeGenerator::new("en-US"))
         .expect("Error generating message bindings");
-
-    // fluent file -> rust module, struct name
-    // fluent message -> struct method
-    // let src = generate("./l10n/", MessageBundleCodeGenerator::new("en-US"))
-    //    .expect("Error generating fluent message bindings");
 
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
     let destination = Path::new(&out_dir).join("l10n.rs");
@@ -58,6 +51,8 @@ pub fn main() {
     fs::write(destination, src).expect("Error writing generated sources");
 }
 ```
+
+More details on code generation in `fluent-static-codegen` [README](fluent-static-codege/README.md)
 
 ### Step 3: Accessing Generated Functions
 
@@ -73,13 +68,14 @@ mod l10n {
 }
 ```
 
+## Integrations
+
+### Axum
+
+Enable `axum` feature and use `fluent_static::axum::RequestLanguage` extractor in any Axum handler to access l10n messages with minimal boilerplate code
 
 ```toml
-[dependencies]
-fluent-static = { version = "0.3.2", features = [ "axum", "maud" ] }
-
-[build-dependencies]
-fluent-static-codegen = { version = "0.3.2" }
+fluent-static = { version = "*", features = [ "axum" ] }
 ```
 
 ```rust
@@ -89,27 +85,14 @@ use maud::{html, Markup};
 
 #[tokio::main]
 async fn main() {
-    let app = Router::new().route("/", get(handler));
+    let app = Router::new().route("/", get(hello_l10n));
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn handler(RequestLanguage(msgs): RequestLanguage<l10n::messages::MessagesBundle>) -> Markup {
+async fn hello_l10n(RequestLanguage(msgs): RequestLanguage<l10n::messages::MessagesBundle>) -> String {
     let name = "Guest";
-    html! {
-        html {
-            head {
-                title {
-                    (msgs.page_title())
-                }
-            }
-            body {
-                h1 {
-                    (msgs.hello(name).unwrap())
-                }
-            }
-        }
-    }
+    format!("l10n: {}", msgs.hello(name).unwrap())
 }
 
 mod l10n {
