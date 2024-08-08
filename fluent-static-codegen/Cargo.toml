@@ -1,6 +1,6 @@
 [package]
 name = "fluent-static-codegen"
-version = "0.3.2"
+version = "0.4.0"
 description = "Automatically generate Rust functions from Fluent message files for streamlined localization in Rust applications."
 edition.workspace = true
 homepage.workspace = true

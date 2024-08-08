@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## fluent-static-codegen-v0.4.0 - 2024-08-08
+#### Build system
+- Allow independent releases of codegen and main lib - (ff60632) - zaytsev
+#### Features
+- **(codegen)** Add macro to simplify codegen - (eb6000b) - *zaytsev*
+
+- - -
+
 ## v0.3.2 - 2024-08-08
 #### Bug Fixes
 - **(codegen)** Fix invalid code generated when variable occurs more than once - (956ba4e) - *zaytsev*
