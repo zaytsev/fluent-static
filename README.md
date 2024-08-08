@@ -19,10 +19,10 @@ Add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-fluent-static = { version = "0.3.1" }
+fluent-static = { version = "0.3.2" }
 
 [build-dependencies]
-fluent-static-codegen = {version = "0.3.1" }
+fluent-static-codegen = {version = "0.3.2" }
 ```
 
 ## Usage
@@ -76,10 +76,10 @@ mod l10n {
 
 ```toml
 [dependencies]
-fluent-static = { version = "0.3.1", features = [ "axum", "maud" ] }
+fluent-static = { version = "0.3.2", features = [ "axum", "maud" ] }
 
 [build-dependencies]
-fluent-static-codegen = { version = "0.3.1" }
+fluent-static-codegen = { version = "0.3.2" }
 ```
 
 ```rust

@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.3.2 - 2024-08-08
+#### Bug Fixes
+- **(codegen)** Fix invalid code generated when variable occurs more than once - (956ba4e) - *zaytsev*
+
+- - -
+
 ## v0.3.1 - 2024-08-06
 #### Bug Fixes
 - **(examples)** Fix examples build errors - (1855751) - *zaytsev*
