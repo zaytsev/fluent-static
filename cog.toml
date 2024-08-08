@@ -26,8 +26,8 @@ bump = { changelog_title = "Dependency updates" }
 [changelog]
 path = "CHANGELOG.md"
 remote = "github.com"
-repository = "zaytsev"
-owner = "fluent-static"
+repository = "fluent-static"
+owner = "zaytsev"
 authors = [{ signature = "Sergey Zaytsev", username = "zaytsev" }]
 
 [bump_profiles]
