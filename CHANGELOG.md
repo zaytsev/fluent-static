@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## fluent-static-codegen-v0.4.1 - 2024-08-16
+#### Bug Fixes
+- Use fully qualified dependency paths in generate! macro - (7b5ec46) - zaytsev
+#### Documentation
+- Update README to demonstrate generate! macro usage - (122a554) - zaytsev
+
+- - -
+
 ## fluent-static-v0.4.0 - 2024-08-08
 #### Features
 - Add macro to include generated source code - (d45d6d3) - zaytsev
