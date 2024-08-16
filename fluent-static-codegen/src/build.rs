@@ -11,16 +11,16 @@ use std::{
 #[macro_export]
 macro_rules! generate {
     ($fluent_resource_root:expr, $generator:expr, $out_file:expr) => {{
-        if let Ok(src) = generate($fluent_resource_root, $generator) {
+        if let Ok(src) = $crate::generate($fluent_resource_root, $generator) {
             let out_dir =
-                env::var("OUT_DIR").expect("OUT_DIR environment variables is not defined");
-            let destination = Path::new(&out_dir)
+                ::std::env::var("OUT_DIR").expect("OUT_DIR environment variables is not defined");
+            let destination = ::std::path::Path::new(&out_dir)
                 .join("generated")
                 .join("fluent")
                 .join($out_file);
-            fs::create_dir_all(destination.parent().unwrap())
+            ::std::fs::create_dir_all(destination.parent().unwrap())
                 .expect("Error creating output directory");
-            fs::write(destination, src).expect("Error writing generated sources");
+            ::std::fs::write(destination, src).expect("Error writing generated sources");
         }
     }};
 }
