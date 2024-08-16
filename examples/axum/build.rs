@@ -1,5 +1,4 @@
 use fluent_static_codegen::{generate, MessageBundleCodeGenerator};
-use std::{env, fs, path::Path};
 
 pub fn main() {
     generate!(
