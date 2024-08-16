@@ -77,6 +77,7 @@
               cargo-geiger
               cargo-outdated
               cargo-audit
+              cargo-expand
 
               cocogitto
             ];
