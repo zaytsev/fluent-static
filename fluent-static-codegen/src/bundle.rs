@@ -42,56 +42,7 @@ impl MessageBundle {
     }
 
     fn validate(self) -> Result<Self, Error> {
-        let all_langs = self
-            .language_bundles
-            .iter()
-            .map(|bundle| bundle.language.as_str())
-            .collect::<HashSet<&str>>();
-
-        let validation_errors = self
-            .language_bundles
-            .iter()
-            .flat_map(|bundle| {
-                bundle
-                    .messages()
-                    .into_iter()
-                    .map(|msg| (bundle.language.as_str(), msg.normalize()))
-            })
-            .fold(
-                HashMap::<NormalizedMessage, HashSet<&str>>::new(),
-                |mut acc, (lang, msg)| {
-                    acc.entry(msg).or_insert_with(HashSet::new).insert(lang);
-                    acc
-                },
-            )
-            .into_iter()
-            .filter_map(|(message, langs)| {
-                if langs.len() != self.language_bundles.len() {
-                    let undefined = all_langs
-                        .difference(&langs)
-                        .map(|lang| lang.to_string())
-                        .collect();
-                    let defined = langs.into_iter().map(String::from).collect();
-                    Some(MessageValidationErrorEntry {
-                        message,
-                        defined_in_languages: defined,
-                        undefined_in_languages: undefined,
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<MessageValidationErrorEntry>>();
-
-        if !validation_errors.is_empty() {
-            Err(Error::MessageBundleValidationError {
-                bundle: self.name,
-                entries: validation_errors,
-                path: self.path.to_string_lossy().to_string(),
-            })
-        } else {
-            Ok(self)
-        }
+        validate_bundle(&self.name, self.path(), &self.language_bundles).map(|_| self)
     }
 
     pub fn get_language_bundle(&self, lang: &str) -> Option<&LanguageBundle> {
@@ -117,6 +68,61 @@ impl MessageBundle {
             .iter()
             .map(|lang| Literal::string(lang.language()))
             .collect()
+    }
+}
+
+pub fn validate_bundle(
+    name: &str,
+    path: impl AsRef<Path>,
+    language_bundles: &[LanguageBundle],
+) -> Result<(), Error> {
+    let all_langs = language_bundles
+        .iter()
+        .map(|bundle| bundle.language.as_str())
+        .collect::<HashSet<&str>>();
+
+    let validation_errors = language_bundles
+        .iter()
+        .flat_map(|bundle| {
+            bundle
+                .messages()
+                .into_iter()
+                .map(|msg| (bundle.language.as_str(), msg.normalize()))
+        })
+        .fold(
+            HashMap::<NormalizedMessage, HashSet<&str>>::new(),
+            |mut acc, (lang, msg)| {
+                acc.entry(msg).or_insert_with(HashSet::new).insert(lang);
+                acc
+            },
+        )
+        .into_iter()
+        .filter_map(|(message, langs)| {
+            if langs.len() != language_bundles.len() {
+                let undefined = all_langs
+                    .difference(&langs)
+                    .map(|lang| lang.to_string())
+                    .collect();
+                let defined = langs.into_iter().map(String::from).collect();
+                Some(MessageValidationErrorEntry {
+                    message,
+                    defined_in_languages: defined,
+                    undefined_in_languages: undefined,
+                })
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<MessageValidationErrorEntry>>();
+
+    if !validation_errors.is_empty() {
+        Err(Error::MessageBundleValidationError {
+            bundle: name.to_string(),
+            entries: validation_errors,
+            path: path.as_ref().to_string_lossy().to_string(),
+        })
+    } else {
+        Ok(())
     }
 }
 

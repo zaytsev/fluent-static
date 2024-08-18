@@ -95,7 +95,7 @@ pub fn generate(
     }
 }
 
-fn create_message_bundles(
+pub fn create_message_bundles(
     resources: Vec<(PathBuf, String)>,
 ) -> Result<Vec<Result<MessageBundle, Error>>, Error> {
     let bundles_by_path = resources.into_iter().try_fold(
