@@ -31,3 +31,5 @@ accept-language = { workspace = true }
 [dev-dependencies]
 
 pretty_assertions = { workspace = true }
+trybuild = { workspace = true }
+fluent-static = { workspace = true }
