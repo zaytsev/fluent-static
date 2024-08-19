@@ -4,9 +4,14 @@ pub use accept_language;
 pub use once_cell;
 pub use unic_langid;
 
+pub use intl_pluralrules;
+
 pub mod fluent_bundle {
     pub use fluent_bundle::concurrent::FluentBundle;
-    pub use fluent_bundle::{FluentArgs, FluentError, FluentMessage, FluentResource, FluentValue};
+    pub use fluent_bundle::{
+        types::{FluentNumber, FluentNumberOptions, FluentNumberStyle},
+        FluentArgs, FluentError, FluentMessage, FluentResource, FluentValue,
+    };
 }
 
 #[macro_export]
@@ -14,6 +19,18 @@ macro_rules! include_source {
     ($name:expr) => {
         include!(concat!(env!("OUT_DIR"), "/generated/fluent/", $name));
     };
+}
+
+pub trait LanguageAware {
+    fn language_id(&self) -> &str;
+}
+
+pub trait MessageBundle: LanguageAware {
+    fn get(language_id: &str) -> Option<Self>
+    where
+        Self: Sized;
+    fn default_language_id() -> &'static str;
+    fn supported_language_ids() -> &'static [&'static str];
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -69,6 +86,12 @@ impl LanguageSpec {
 
 impl AsRef<str> for LanguageSpec {
     fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl LanguageAware for LanguageSpec {
+    fn language_id(&self) -> &str {
         &self.0
     }
 }

@@ -237,9 +237,30 @@ dependencies = [
  "axum-extra",
  "fluent-bundle",
  "http",
+ "intl_pluralrules",
  "maud",
  "once_cell",
  "tokio",
+ "unic-langid",
+]
+
+[[package]]
+name = "fluent-static-bundle"
+version = "0.0.1"
+dependencies = [
+ "accept-language",
+ "convert_case",
+ "fluent-bundle",
+ "fluent-static",
+ "fluent-syntax",
+ "intl_pluralrules",
+ "once_cell",
+ "pretty_assertions",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "thiserror",
+ "trybuild",
  "unic-langid",
 ]
 
