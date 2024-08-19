@@ -261,7 +261,7 @@ dependencies = [
 
 [[package]]
 name = "fluent-static"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "accept-language",
  "async-trait",
@@ -276,7 +276,7 @@ dependencies = [
 
 [[package]]
 name = "fluent-static-codegen"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "accept-language",
  "convert_case",

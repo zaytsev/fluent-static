@@ -1,5 +1,15 @@
+use fluent_static::fluent_bundle::FluentValue;
+
 fn main() {
     println!("{}", l10n::messages::hello("en", "World!").unwrap());
+}
+
+pub fn fluent_value_format<M>(value: &FluentValue, _: &M) -> Option<String> {
+    if let FluentValue::String(s) = value {
+        Some(format!("<{}>", s))
+    } else {
+        None
+    }
 }
 
 mod l10n {
@@ -11,7 +21,7 @@ mod test {
     #[test]
     fn test_l10n() {
         let actual = super::l10n::messages::hello("en", "foo").unwrap();
-        assert_eq!("Hello,\nmy\ndear\nfried\n\u{2068}foo\u{2069}", actual);
+        assert_eq!("Hello,\nmy\ndear\nfried\nfoo", actual);
     }
 
     #[test]
