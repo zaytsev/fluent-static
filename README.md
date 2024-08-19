@@ -1,5 +1,8 @@
-
 # fluent-static
+
+
+[![Latest version](https://img.shields.io/crates/v/fluent-static.svg)](https://crates.io/crates/fluent-static)
+
 
 Fluent-static is a Rust library designed to generate statically typed function bindings from Fluent localization bundles. This allows for compile-time validation of localization message usage, enhancing both reliability and maintainability of your internationalized code base.
 

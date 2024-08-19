@@ -1,5 +1,9 @@
 # fluent-static-codegen
 
+
+[![Latest version](https://img.shields.io/crates/v/fluent-static-codegen.svg)](https://crates.io/crates/fluent-static-codegen)
+
+
 Part of [fluent-static](../README.md) library responsible for generating Rust code from [Fluent](https://projectfluent.org/) resources.
 
 The project is heavily relying on [fluent-rs](https://github.com/projectfluent/fluent-rs) for parsing and processing Fluent resources.
