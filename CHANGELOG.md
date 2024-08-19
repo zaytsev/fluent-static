@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## fluent-static-codegen-v0.5.0 - 2024-08-19
+#### Features
+- Allow compile-time FluentBundle configuration - (b7aefb2) - zaytsev
+
+- - -
+
 ## fluent-static-codegen-v0.4.1 - 2024-08-16
 #### Bug Fixes
 - Use fully qualified dependency paths in generate! macro - (7b5ec46) - zaytsev
