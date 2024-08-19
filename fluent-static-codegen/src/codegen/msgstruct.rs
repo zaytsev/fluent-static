@@ -5,16 +5,22 @@ use syn::Ident;
 use crate::{bundle::MessageBundle, message::Message, Error};
 use quote::{format_ident, quote};
 
-use super::{common, CodeGenerator};
+use super::{common, CodeGenerator, FluentBundleOptions};
 
 pub struct MessageBundleCodeGenerator {
     default_language: String,
+    bundle_opts: FluentBundleOptions,
 }
 
 impl MessageBundleCodeGenerator {
     pub fn new(default_language: &str) -> Self {
+        Self::new_with_options(default_language, FluentBundleOptions::default())
+    }
+
+    pub fn new_with_options(default_language: &str, bundle_opts: FluentBundleOptions) -> Self {
         Self {
             default_language: default_language.to_string(),
+            bundle_opts,
         }
     }
 }
@@ -24,7 +30,7 @@ impl CodeGenerator for MessageBundleCodeGenerator {
         let module_name = bundle.name_ident();
         let struct_name = format_ident!("{}Bundle", bundle.name().to_case(Case::UpperCamel));
         let supported_languages = bundle.language_literals();
-        let language_bundles = common::language_bundle_definitions(bundle);
+        let language_bundles = common::language_bundle_definitions(bundle, &self.bundle_opts)?;
         let language_bundle_lookup_fn =
             common::language_bundle_lookup_function_definition(&self.default_language, bundle)?;
         let message_format_fn = format_ident!("internal_message_format");
@@ -185,6 +191,7 @@ fn message_functions_definitions(
 
 #[cfg(test)]
 mod test {
+    use pretty_assertions::assert_eq;
     use proc_macro2::Literal;
     use quote::quote;
 
@@ -228,6 +235,7 @@ mod test {
                         let lang_id = fluent_static::unic_langid::langid!("en");
                         let mut bundle: FluentBundle<FluentResource> = FluentBundle::new_concurrent(vec![lang_id]);
                         bundle.add_resource(FluentResource::try_new(EN_RESOURCE.to_string()).unwrap()).unwrap();
+                        bundle.set_use_isolating(true);
                         bundle
                     });
 
@@ -236,6 +244,7 @@ mod test {
                         let lang_id = fluent_static::unic_langid::langid!("en-UK");
                         let mut bundle: FluentBundle<FluentResource> = FluentBundle::new_concurrent(vec![lang_id]);
                         bundle.add_resource(FluentResource::try_new(EN_UK_RESOURCE.to_string()).unwrap()).unwrap();
+                        bundle.set_use_isolating(true);
                         bundle
                     });
 

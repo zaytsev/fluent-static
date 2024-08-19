@@ -21,6 +21,9 @@ pub enum Error {
         errors: Vec<fluent_syntax::parser::ParserError>,
     },
 
+    #[error(transparent)]
+    SyntaxError(#[from] syn::Error),
+
     #[error("Found unsupported feature {feature}: {id}")]
     UnsupportedFeature { feature: String, id: String },
 

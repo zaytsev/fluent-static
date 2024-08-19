@@ -95,6 +95,20 @@ pub mod <bundle_name>
 }  
 ```
 
+#### Setting FluentBundle options
+
+```rust
+    let generator = FunctionPerMessageCodeGenerator::new_with_options(
+        "en",
+        FluentBundleOptions {
+            use_isolating: false,
+            transform_fn: Some("crate::util::fluent_value_transformer".to_string()),
+            format_fn: Some("crate::util::fluent_formatter".to_string()),
+        },
+    );
+    generate!("./l10n/", generator, "l10n");
+```
+
 ### Compile-time validation
 
 The following conditions are validated at compilation time to ensure that each message in a `bundle_name` is correctly defined:

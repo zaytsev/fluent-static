@@ -27,3 +27,7 @@ convert_case = { workspace = true }
 unic-langid = { workspace = true }
 once_cell = { workspace = true }
 accept-language = { workspace = true }
+
+[dev-dependencies]
+
+pretty_assertions = { workspace = true }

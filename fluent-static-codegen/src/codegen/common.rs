@@ -4,22 +4,50 @@ use syn::Ident;
 use crate::{bundle::MessageBundle, message::Message, Error};
 use quote::quote;
 
-pub fn language_bundle_definitions(bundle: &MessageBundle) -> Vec<TokenStream> {
-    bundle.language_bundles.iter().map(|language_bundle| {
+use super::FluentBundleOptions;
+
+pub fn language_bundle_definitions(
+    bundle: &MessageBundle,
+    opts: &FluentBundleOptions,
+) -> Result<Vec<TokenStream>, Error> {
+    let bundle_transform_expr = if let Some(name) = opts.transform_fn.as_ref() {
+        let transform: syn::Expr = syn::parse_str(name)?;
+        quote! {
+            bundle.set_transform(Some(#transform));
+        }
+    } else {
+        TokenStream::new()
+    };
+
+    let bundle_formatter_expr = if let Some(name) = opts.format_fn.as_ref() {
+        let formatter: syn::Expr = syn::parse_str(name)?;
+        quote! {
+            bundle.set_formatter(Some(#formatter));
+        }
+    } else {
+        TokenStream::new()
+    };
+
+    Ok(bundle.language_bundles.iter().map(|language_bundle| {
             let lang_id = language_bundle.language();
             let resource_ident = language_bundle.static_resource_ident();
             let bundle_ident = language_bundle.static_bundle_ident();
             let resource = language_bundle.resource_literal();
+            let use_isolating = opts.use_isolating;
+
             quote! {
                 static #resource_ident: &str = #resource;
                 static #bundle_ident: Lazy<FluentBundle<FluentResource>> = Lazy::new(|| {
                     let lang_id = fluent_static::unic_langid::langid!(#lang_id);
                     let mut bundle: FluentBundle<FluentResource> = FluentBundle::new_concurrent(vec![lang_id]);
                     bundle.add_resource(FluentResource::try_new(#resource_ident.to_string()).unwrap()).unwrap();
+                    bundle.set_use_isolating(#use_isolating);
+                    #bundle_transform_expr
+                    #bundle_formatter_expr
                     bundle
                 });
             }
-        }).collect()
+        }).collect())
 }
 
 pub fn language_bundle_lookup_function_definition(

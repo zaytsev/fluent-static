@@ -5,5 +5,7 @@ pub mod error;
 pub mod message;
 
 pub use build::generate;
-pub use codegen::{FunctionPerMessageCodeGenerator, MessageBundleCodeGenerator};
+pub use codegen::{
+    FluentBundleOptions, FunctionPerMessageCodeGenerator, MessageBundleCodeGenerator,
+};
 pub use error::Error;

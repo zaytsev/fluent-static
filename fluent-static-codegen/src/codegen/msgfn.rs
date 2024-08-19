@@ -5,17 +5,31 @@ use syn::Ident;
 use crate::{bundle::MessageBundle, message::Message, Error};
 use quote::{format_ident, quote};
 
-use super::{common, CodeGenerator};
+use super::{common, CodeGenerator, FluentBundleOptions};
 
 pub struct FunctionPerMessageCodeGenerator {
     default_language: String,
+    bundle_opts: FluentBundleOptions,
+}
+
+impl FunctionPerMessageCodeGenerator {
+    pub fn new(default_language: &str) -> Self {
+        Self::new_with_options(default_language, FluentBundleOptions::default())
+    }
+
+    pub fn new_with_options(default_language: &str, bundle_opts: FluentBundleOptions) -> Self {
+        Self {
+            default_language: default_language.to_string(),
+            bundle_opts,
+        }
+    }
 }
 
 impl CodeGenerator for FunctionPerMessageCodeGenerator {
     fn generate(&self, bundle: &MessageBundle) -> Result<TokenStream, Error> {
         let module_name = bundle.name_ident();
         let supported_languages = bundle.language_literals();
-        let language_bundles = common::language_bundle_definitions(bundle);
+        let language_bundles = common::language_bundle_definitions(bundle, &self.bundle_opts)?;
         let language_bundle_lookup_fn =
             common::language_bundle_lookup_function_definition(&self.default_language, bundle)?;
         let message_format_fn = format_ident!("format_message");
@@ -56,14 +70,6 @@ impl CodeGenerator for FunctionPerMessageCodeGenerator {
         }
 
         Ok(module)
-    }
-}
-
-impl FunctionPerMessageCodeGenerator {
-    pub fn new(default_language: &str) -> Self {
-        Self {
-            default_language: default_language.to_string(),
-        }
     }
 }
 
@@ -127,7 +133,12 @@ mod test {
     use proc_macro2::Literal;
     use quote::quote;
 
-    use crate::{bundle::MessageBundle, codegen::CodeGenerator};
+    use pretty_assertions::assert_eq;
+
+    use crate::{
+        bundle::MessageBundle,
+        codegen::{CodeGenerator, FluentBundleOptions},
+    };
 
     #[test]
     fn codegen() {
@@ -144,9 +155,16 @@ mod test {
         )
         .unwrap();
 
-        let actual = super::FunctionPerMessageCodeGenerator::new("en")
-            .generate(&message_bundle)
-            .unwrap();
+        let actual = super::FunctionPerMessageCodeGenerator::new_with_options(
+            "en",
+            FluentBundleOptions {
+                use_isolating: false,
+                transform_fn: Some("crate::util::fluent_value_transformer".to_string()),
+                format_fn: Some("crate::util::fluent_formatter".to_string()),
+            },
+        )
+        .generate(&message_bundle)
+        .unwrap();
 
         let resource_en_literal = Literal::string(resource_en);
         let resource_en_uk_literal = Literal::string(resource_en_uk);
@@ -166,6 +184,9 @@ mod test {
                         let lang_id = fluent_static::unic_langid::langid!("en");
                         let mut bundle: FluentBundle<FluentResource> = FluentBundle::new_concurrent(vec![lang_id]);
                         bundle.add_resource(FluentResource::try_new(EN_RESOURCE.to_string()).unwrap()).unwrap();
+                        bundle.set_use_isolating(false);
+                        bundle.set_transform(Some(crate::util::fluent_value_transformer));
+                        bundle.set_formatter(Some(crate::util::fluent_formatter));
                         bundle
                     });
 
@@ -174,6 +195,9 @@ mod test {
                         let lang_id = fluent_static::unic_langid::langid!("en-UK");
                         let mut bundle: FluentBundle<FluentResource> = FluentBundle::new_concurrent(vec![lang_id]);
                         bundle.add_resource(FluentResource::try_new(EN_UK_RESOURCE.to_string()).unwrap()).unwrap();
+                        bundle.set_use_isolating(false);
+                        bundle.set_transform(Some(crate::util::fluent_value_transformer));
+                        bundle.set_formatter(Some(crate::util::fluent_formatter));
                         bundle
                     });
 
