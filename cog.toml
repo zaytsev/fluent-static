@@ -17,17 +17,17 @@ pre_package_bump_hooks = [
   "git add :/Cargo.lock",
 ]
 
-# post_bump_hooks = ["git push", "git push --tags"]
+post_bump_hooks = ["git push", "git push --tags"]
 
 post_package_bump_hooks = ["cargo package"]
 
 [packages.fluent-static]
 path = "fluent-static"
-# post_bump_hooks = ["cargo publish -p fluent-static"]
+post_bump_hooks = ["cargo publish -p fluent-static"]
 
 [packages.fluent-static-codegen]
 path = "fluent-static-codegen"
-# post_bump_hooks = ["cargo publish -p fluent-static-codegen"]
+post_bump_hooks = ["cargo publish -p fluent-static-codegen"]
 
 [commit_types]
 bump = { changelog_title = "Dependency updates" }
