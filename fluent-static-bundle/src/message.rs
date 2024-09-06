@@ -1,27 +1,26 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::{Path, PathBuf},
-    str::FromStr,
+    collections::{BTreeMap, BTreeSet}, path::{Path, PathBuf}, str::FromStr
 };
 
 use convert_case::{Case, Casing};
-use fluent_syntax::{ast, parser};
+use fluent_syntax::parser;
 use proc_macro2::{Ident, Literal, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use unic_langid::LanguageIdentifier;
 
 use crate::{
-    ast::{Node, Visitor},
-    language::{Callable, LanguageBuilder},
+    ast::Visitor,
+    language::LanguageBuilder,
+    types::{FluentMessage, PublicFluentId},
     Error,
 };
 
 pub struct MessageBundleBuilder {
     bundle_name: String,
-    default_language: Option<String>,
+    default_language: Option<LanguageIdentifier>,
     base_dir: Option<PathBuf>,
-    language_bundles: BTreeMap<String, LanguageBuilder>,
-    language_idents: BTreeMap<String, Ident>,
+    language_bundles: BTreeMap<LanguageIdentifier, LanguageBuilder>,
+    language_idents: BTreeMap<LanguageIdentifier, Ident>,
     language_bundles_code: Vec<TokenStream2>,
 }
 
@@ -37,9 +36,9 @@ impl MessageBundleBuilder {
         }
     }
 
-    pub fn with_default_language(mut self, language_id: &str) -> Self {
-        self.default_language = Some(language_id.to_string());
-        self
+    pub fn with_default_language(mut self, language_id: &str) -> Result<Self, Error> {
+        self.default_language = Some(LanguageIdentifier::from_str(language_id)?);
+        Ok(self)
     }
 
     pub fn with_base_dir(mut self, base_dir: impl AsRef<Path>) -> Self {
@@ -47,12 +46,11 @@ impl MessageBundleBuilder {
         self
     }
 
-    fn default_language(&self) -> &str {
+    fn default_language(&self) -> &LanguageIdentifier {
         self.default_language
             .as_ref()
             .or_else(|| self.language_idents.first_key_value().map(|(k, _)| k))
-            .map(|lang| lang.as_str())
-            .unwrap_or_default()
+            .unwrap()
     }
 
     pub fn add_resource(
@@ -68,7 +66,7 @@ impl MessageBundleBuilder {
             return Err(Error::UnexpectedRelativePath(path.as_ref().to_path_buf()));
         };
 
-        let language_id = LanguageIdentifier::from_str(lang_id)?.to_string();
+        let language_id = LanguageIdentifier::from_str(lang_id)?;
 
         let language_ident = format_ident!("Lang{}", language_id.to_string().to_case(Case::Pascal));
 
@@ -89,7 +87,7 @@ impl MessageBundleBuilder {
 
         let lang_bundle = self
             .language_bundles
-            .entry(language_id.to_string())
+            .entry(language_id)
             .or_insert_with_key(|lang_id| LanguageBuilder::new(lang_id));
 
         self.language_bundles_code
@@ -99,13 +97,13 @@ impl MessageBundleBuilder {
     }
 
     fn validate(&self) -> Result<&Self, crate::Error> {
-        let supported_languages: BTreeSet<&str> =
-            self.language_bundles.keys().map(|k| k.as_str()).collect();
+        let supported_languages: BTreeSet<&LanguageIdentifier> =
+            self.language_bundles.keys().collect();
 
         if let Some(default_language) = self.default_language.as_ref() {
-            if !supported_languages.contains(default_language.as_str()) {
+            if !supported_languages.contains(default_language) {
                 return Err(Error::UnsupportedDefaultLanguage {
-                    lang: default_language.clone(),
+                    lang: default_language.clone().to_string(),
                 });
             }
         }
@@ -120,9 +118,9 @@ impl MessageBundleBuilder {
                     .iter()
                     .for_each(|(id, _)| {
                         msg_fns
-                            .entry(id.as_str())
+                            .entry(id)
                             .or_insert_with(BTreeSet::new)
-                            .insert(lang.as_str());
+                            .insert(lang);
                     });
                 msg_fns
             })
@@ -135,6 +133,7 @@ impl MessageBundleBuilder {
                         .difference(&message_languages)
                         .map(|lang| lang.to_string())
                         .collect();
+
                     Some(crate::error::MessageValidationErrorEntry {
                         message_id: id.to_string(),
                         defined_in_languages: message_languages
@@ -169,7 +168,7 @@ impl MessageBundleBuilder {
 
         let language_bundles_code = &self.language_bundles_code;
         let message_fns = self.generate_message_fns(&bundle_languages_enum);
-        let default_language_literal = Literal::string(self.default_language());
+        let default_language_literal = Literal::string(&self.default_language().to_string());
 
         // impl ::fluent_static::LanguageAware for self::#bundle_ident {
         // }
@@ -224,7 +223,7 @@ impl MessageBundleBuilder {
         let language_idents: Vec<(Literal, &Ident)> = self
             .language_idents
             .iter()
-            .map(|(lang_id, ident)| (Literal::string(lang_id), ident))
+            .map(|(lang_id, ident)| (Literal::string(&lang_id.to_string()), ident))
             .collect();
 
         let default_lang_ident = self
@@ -336,12 +335,13 @@ impl MessageBundleBuilder {
     fn generate_message_fn(
         &self,
         languages_enum: &Ident,
-        msg_fn_id: &String,
-        Callable { id, vars, .. }: &Callable,
+        msg_fn_id: &PublicFluentId,
+        msg: &FluentMessage,
     ) -> TokenStream2 {
-        let fn_ident = format_ident!("{}", id.replace('.', "_").to_case(Case::Snake));
+        let fn_ident = format_ident!("{}", msg.id().to_string().replace('.', "_").to_case(Case::Snake));
 
-        let fn_generics = if !vars.is_empty() {
+        let vars = msg.declared_vars();
+        let fn_generics = if msg.has_vars() {
             quote! {<'a>}
         } else {
             quote! {}
@@ -360,12 +360,10 @@ impl MessageBundleBuilder {
             .map(
                 |(
                     lang,
-                    Callable {
-                        fn_ident: lang_fn_ident,
-                        var_idents: fn_vars,
-                        ..
-                    },
+                    lang_msg,
                 )| {
+                    let lang_fn_ident = lang_msg.fn_ident();
+                    let fn_vars: BTreeSet<Ident> = lang_msg.vars().into_iter().map(|var| var.var_ident).collect();
                     let lang = self.language_idents.get(lang).expect("Unexpected language");
                     quote! {
                         self::#languages_enum::#lang => self.#lang_fn_ident(&mut out, #(#fn_vars),*)

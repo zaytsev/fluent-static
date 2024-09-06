@@ -20,6 +20,7 @@ fn output_dir() -> PathBuf {
 fn test_basic_messages() {
     let basic = MessageBundleBuilder::new("Basic")
         .with_default_language("en")
+        .unwrap()
         .with_base_dir(resources_base_dir())
         .add_resource("en", "basic-en.ftl")
         .unwrap()
@@ -39,6 +40,7 @@ fn test_basic_messages() {
 fn test_compound_messages() {
     let attributes = MessageBundleBuilder::new("Attributes")
         .with_default_language("en")
+        .unwrap()
         .with_base_dir(resources_base_dir())
         .add_resource("en", "attributes-en.ftl")
         .unwrap()
@@ -58,6 +60,7 @@ fn test_compound_messages() {
 fn test_selector_messages() {
     let strings = MessageBundleBuilder::new("Strings")
         .with_default_language("en")
+        .unwrap()
         .with_base_dir(resources_base_dir())
         .add_resource("en", "selectors/strings-en.ftl")
         .unwrap()
@@ -74,6 +77,7 @@ fn test_selector_messages() {
 
     let numbers = MessageBundleBuilder::new("Numbers")
         .with_default_language("en")
+        .unwrap()
         .with_base_dir(resources_base_dir())
         .add_resource("en", "selectors/numbers-en.ftl")
         .unwrap()
@@ -90,6 +94,7 @@ fn test_selector_messages() {
 
     let plural_rules = MessageBundleBuilder::new("Prs")
         .with_default_language("en")
+        .unwrap()
         .with_base_dir(resources_base_dir())
         .add_resource("en", "selectors/pluralrules-en.ftl")
         .unwrap()
