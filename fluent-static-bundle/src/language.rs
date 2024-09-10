@@ -21,7 +21,7 @@ use crate::{
 enum ExpressionContext {
     Inline,
     Selector { plural_rules: bool },
-    Argument,
+    TermArguments { term: FluentMessage },
 }
 
 pub struct LanguageBuilder {
@@ -30,10 +30,10 @@ pub struct LanguageBuilder {
 
     pub language_id: LanguageIdentifier,
     pub prefix: String,
-    pub registered_fns: BTreeMap<Ident, FluentMessage>,
+    pub registered_fns: BTreeMap<FluentId, FluentMessage>,
     pub registered_message_fns: BTreeMap<PublicFluentId, FluentMessage>,
     pub pending_message_refs: BTreeMap<FluentId, BTreeSet<PublicFluentId>>,
-    pub pending_term_refs: BTreeMap<FluentId, String>,
+    pub pending_term_refs: BTreeMap<FluentId, BTreeSet<PublicFluentId>>,
 }
 
 impl LanguageBuilder {
@@ -114,14 +114,12 @@ impl LanguageBuilder {
 
         let result = self.generate_message_code(&f, body);
 
-        if self
-            .registered_fns
-            .insert(f.fn_ident(), f.clone())
-            .is_some()
-        {
-            Err(Error::DuplicateEntryId(f.fn_ident().to_string()))
+        if self.registered_fns.insert(f.id(), f.clone()).is_some() {
+            Err(Error::DuplicateEntryId(f.id().to_string()))
         } else {
-            self.registered_message_fns.insert(f.public_id(), f.clone());
+            if !f.is_private() {
+                self.registered_message_fns.insert(f.public_id(), f.clone());
+            }
             Ok(result)
         }
     }
@@ -166,6 +164,19 @@ impl LanguageBuilder {
         self.expression_contexts
             .last()
             .unwrap_or(&ExpressionContext::Inline)
+    }
+
+    fn find_entry<S: ToString>(
+        &self,
+        id: &ast::Identifier<S>,
+        attribute: &Option<ast::Identifier<S>>,
+    ) -> (FluentId, Option<FluentMessage>) {
+        let msg_id = if let Some(attribute_id) = attribute {
+            FluentId::from(id).join(attribute_id)
+        } else {
+            FluentId::from(id)
+        };
+        (msg_id.clone(), self.registered_fns.get(&msg_id).cloned())
     }
 }
 
@@ -313,86 +324,133 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
         todo!()
     }
 
-    fn visit_call_arguments(&mut self, _arguments: &ast::CallArguments<S>) -> Self::Output {
-        self.enter_expr_context(ExpressionContext::Argument);
-        todo!()
+    fn visit_call_arguments(&mut self, arguments: &ast::CallArguments<S>) -> Self::Output {
+        match self.current_expr_context() {
+            ExpressionContext::TermArguments { term } => {
+                let term = term.clone();
+                let vars = term.vars();
+                let vars_by_name: BTreeMap<&str, &Ident> = vars
+                    .iter()
+                    .map(|var| (var.var_name.as_str(), &var.var_ident))
+                    .collect();
+                let mut sorted_args: BTreeMap<&Ident, TokenStream2> = BTreeMap::new();
+                for named_arg in arguments.named.iter() {
+                    let name = named_arg.name.name.to_string();
+                    if let Some(ident) = vars_by_name.get(name.as_str()) {
+                        let tokens = named_arg.accept(self)?;
+                        sorted_args.insert(ident, tokens);
+                    } else {
+                        let term_id = term.id().to_string();
+                        return Err(Error::UndeclaredTermArgument {
+                            term_id,
+                            arg_name: name,
+                        });
+                    };
+                }
+                let args: Vec<TokenStream2> = sorted_args.into_values().collect();
+                Ok(quote! {
+                    #(#args),*
+                })
+            }
+            _ => Err(Error::UnexpectedContextState),
+        }
     }
 
-    fn visit_named_argument(&mut self, _argument: &ast::NamedArgument<S>) -> Self::Output {
-        todo!()
+    fn visit_named_argument(&mut self, argument: &ast::NamedArgument<S>) -> Self::Output {
+        argument.value.accept(self)
     }
 
     fn visit_inline_expression(&mut self, expression: &ast::InlineExpression<S>) -> Self::Output {
         // TODO: avoid clone
         let ctx = self.current_expr_context().clone();
         match ctx {
-            ExpressionContext::Inline => match expression {
-                ast::InlineExpression::StringLiteral { value } => {
-                    let literal = Literal::string(&value.to_string());
-                    Ok(quote! {
-                        out.write_str(#literal)?;
-                    })
-                }
-                ast::InlineExpression::NumberLiteral { value } => {
-                    let s = value.to_string();
-                    if let FluentValue::Number(n) = FluentValue::try_number(&s) {
-                        let literal = Literal::string(&n.as_string());
+            ExpressionContext::Inline => {
+                match expression {
+                    ast::InlineExpression::StringLiteral { value } => {
+                        let literal = Literal::string(&value.to_string());
                         Ok(quote! {
                             out.write_str(#literal)?;
                         })
-                    } else {
-                        Err(Error::InvalidLiteral(s))
                     }
+                    ast::InlineExpression::NumberLiteral { value } => {
+                        let s = value.to_string();
+                        if let FluentValue::Number(n) = FluentValue::try_number(&s) {
+                            let literal = Literal::string(&n.as_string());
+                            Ok(quote! {
+                                out.write_str(#literal)?;
+                            })
+                        } else {
+                            Err(Error::InvalidLiteral(s))
+                        }
+                    }
+                    ast::InlineExpression::FunctionReference {
+                        id: _,
+                        arguments: _,
+                    } => todo!("Add support for function refs"),
+                    ast::InlineExpression::MessageReference { id, attribute } => {
+                        let (msg_id, msg) = self.find_entry(id, attribute);
+                        if let Some(msg) = msg {
+                            let fn_ident = msg.fn_ident();
+                            Ok(quote! {
+                               self.#fn_ident(out)?;
+                            })
+                        } else {
+                            let entry_id = self.current_context()?.id().to_string();
+                            let reference_id = msg_id.to_string();
+                            Err(Error::UndeclaredMessageReference {
+                                entry_id,
+                                reference_id,
+                            })
+                        }
+                    }
+                    ast::InlineExpression::TermReference {
+                        id,
+                        attribute,
+                        arguments,
+                    } => {
+                        let (term_id, term) = self.find_entry(id, attribute);
+                        if let Some(term) = term.as_ref() {
+                            let fn_ident = term.fn_ident();
+                            let args = if let Some(args) = arguments.as_ref() {
+                                self.enter_expr_context(ExpressionContext::TermArguments {
+                                    term: term.clone(),
+                                });
+                                let result = args.accept(self);
+                                self.leave_expr_context()?;
+                                result?
+                            } else {
+                                quote! {}
+                            };
+                            Ok(quote! {
+                               self.#fn_ident(out, #args)?;
+                            })
+                        } else {
+                            let entry_id = self.current_context()?.id().to_string();
+                            let reference_id = term_id.to_string();
+                            Err(Error::UndeclaredTermReference {
+                                entry_id,
+                                reference_id,
+                            })
+                        }
+                    }
+                    ast::InlineExpression::VariableReference { id } => {
+                        let var_ident = self.append_var(id)?;
+                        // TODO add formatter support
+                        // TODO add unicode isolating marks support
+                        // TODO add unicode escaping
+                        Ok(quote! {
+                            match &#var_ident {
+                                ::fluent_static::fluent_bundle::FluentValue::String(s) => out.write_str(&s)?,
+                                ::fluent_static::fluent_bundle::FluentValue::Number(n) => out.write_str(&n.as_string())?,
+                                ::fluent_static::fluent_bundle::FluentValue::Custom(_) => unimplemented!("Custom types are not supported"),
+                                ::fluent_static::fluent_bundle::FluentValue::None => (),
+                                ::fluent_static::fluent_bundle::FluentValue::Error => (),
+                            };
+                        })
+                    }
+                    ast::InlineExpression::Placeable { expression } => expression.accept(self),
                 }
-                ast::InlineExpression::FunctionReference {
-                    id: _,
-                    arguments: _,
-                } => todo!("Add support for function refs"),
-                ast::InlineExpression::MessageReference { id, attribute } => {
-                    let msg_id = if let Some(attribute_id) = attribute {
-                        FluentId::from(id).join(attribute_id)
-                    } else {
-                        FluentId::from(id)
-                    };
-                    let fn_ident = if let Some(msg) = self
-                        .registered_message_fns
-                        .get(&PublicFluentId::from(msg_id.clone()))
-                    {
-                        msg.fn_ident()
-                    } else {
-                        let current_msg = self.current_context()?.public_id();
-                        self.pending_message_refs
-                            .entry(msg_id.clone())
-                            .or_insert_with(|| BTreeSet::new())
-                            .insert(current_msg);
-                        self.make_fn_ident(id, attribute.as_ref())
-                    };
-                    Ok(quote! {
-                       self.#fn_ident(out)?;
-                    })
-                }
-                ast::InlineExpression::TermReference {
-                    id: _,
-                    attribute: _,
-                    arguments: _,
-                } => todo!("Add support for term refs"),
-                ast::InlineExpression::VariableReference { id } => {
-                    let var_ident = self.append_var(id)?;
-                    // TODO add formatter support
-                    // TODO add unicode isolating marks support
-                    // TODO add unicode escaping
-                    Ok(quote! {
-                        match &#var_ident {
-                            ::fluent_static::fluent_bundle::FluentValue::String(s) => out.write_str(&s)?,
-                            ::fluent_static::fluent_bundle::FluentValue::Number(n) => out.write_str(&n.as_string())?,
-                            ::fluent_static::fluent_bundle::FluentValue::Custom(_) => unimplemented!("Custom types are not supported"),
-                            ::fluent_static::fluent_bundle::FluentValue::None => (),
-                            ::fluent_static::fluent_bundle::FluentValue::Error => (),
-                        };
-                    })
-                }
-                ast::InlineExpression::Placeable { expression } => expression.accept(self),
-            },
+            }
             ExpressionContext::Selector { plural_rules } => match expression {
                 ast::InlineExpression::VariableReference { id } => {
                     let var_ident = self.append_var(id)?;
@@ -433,7 +491,84 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                     id: self.current_context()?.id().to_string(),
                 }),
             },
-            ExpressionContext::Argument => todo!(),
+            ExpressionContext::TermArguments { .. } => match expression {
+                ast::InlineExpression::StringLiteral { value } => {
+                    let lit = Literal::string(&value.to_string());
+                    Ok(quote! {
+                        ::fluent_static::fluent_bundle::FluentValue::from(#lit)
+                    })
+                }
+                ast::InlineExpression::NumberLiteral { value } => {
+                    let lit = Literal::string(&value.to_string());
+                    Ok(quote! {
+                        ::fluent_static::fluent_bundle::FluentValue::try_number(#lit)
+                    })
+                }
+                ast::InlineExpression::FunctionReference { id, .. } => {
+                    todo!("Implement function ref: {}", id.name.to_string())
+                }
+                ast::InlineExpression::MessageReference { id, attribute } => {
+                    let (msg_id, msg) = self.find_entry(id, attribute);
+                    if let Some(msg) = msg {
+                        let fn_ident = msg.fn_ident();
+                        Ok(quote! {
+                            {
+                                let mut out = String::new();
+                                self.#fn_ident(&mut out)?;
+                                ::fluent_static::fluent_bundle::FluentValue::from(out)
+                            }
+                        })
+                    } else {
+                        let entry_id = self.current_context()?.id().to_string();
+                        let reference_id = msg_id.to_string();
+                        Err(Error::UndeclaredMessageReference {
+                            entry_id,
+                            reference_id,
+                        })
+                    }
+                }
+                ast::InlineExpression::TermReference {
+                    id,
+                    attribute,
+                    arguments,
+                } => {
+                    let (term_id, term) = self.find_entry(id, attribute);
+                    if let Some(term) = term.as_ref() {
+                        let fn_ident = term.fn_ident();
+                        let args = if let Some(args) = arguments.as_ref() {
+                            self.enter_expr_context(ExpressionContext::TermArguments {
+                                term: term.clone(),
+                            });
+                            let result = args.accept(self);
+                            self.leave_expr_context()?;
+                            result?
+                        } else {
+                            quote! {}
+                        };
+                        Ok(quote! {
+                            {
+                                let mut out = String::new();
+                                self.#fn_ident(&mut out, #args)?;
+                                ::fluent_static::fluent_bundle::FluentValue::from(out)
+                            }
+                        })
+                    } else {
+                        let entry_id = self.current_context()?.id().to_string();
+                        let reference_id = term_id.to_string();
+                        Err(Error::UndeclaredTermReference {
+                            entry_id,
+                            reference_id,
+                        })
+                    }
+                }
+                ast::InlineExpression::VariableReference { id } => {
+                    let var_ident = self.append_var(id)?;
+                    Ok(quote! {
+                        #var_ident.clone()
+                    })
+                }
+                ast::InlineExpression::Placeable { expression } => expression.accept(self),
+            },
         }
     }
 

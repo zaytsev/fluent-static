@@ -114,3 +114,23 @@ fn test_selector_messages() {
     test_cases.pass("tests/sources/selectors/numbers.rs");
     test_cases.pass("tests/sources/selectors/pluralrules.rs");
 }
+
+#[test]
+fn test_references() {
+    let strings = MessageBundleBuilder::new("BasicRefs")
+        .with_default_language("en")
+        .unwrap()
+        .with_base_dir(resources_base_dir())
+        .add_resource("en", "refs/basic-en.ftl")
+        .unwrap()
+        .add_resource("it", "refs/basic-it.ftl")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    fs::write(output_dir().join("basic_refs.rs"), strings.to_string())
+        .expect("Error writing generated source");
+
+    let test_cases = trybuild::TestCases::new();
+    test_cases.pass("tests/sources/refs/basic.rs");
+}

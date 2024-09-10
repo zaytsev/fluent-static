@@ -70,6 +70,21 @@ pub enum Error {
 
     #[error("Message {message_id} selector must have exactly one default variant")]
     InvalidSelectorDefaultVariant { message_id: String },
+
+    #[error("Term {term_id} reference contains undeclared argument '{arg_name}'")]
+    UndeclaredTermArgument { term_id: String, arg_name: String },
+
+    #[error("Entry {entry_id} references undeclared message '{reference_id}'. Declare message '{reference_id}' before use.")]
+    UndeclaredMessageReference {
+        entry_id: String,
+        reference_id: String,
+    },
+
+    #[error("Entry {entry_id} references undeclared term '{reference_id}'. Declare term '{reference_id}' before use.")]
+    UndeclaredTermReference {
+        entry_id: String,
+        reference_id: String,
+    },
 }
 
 #[derive(Debug)]
