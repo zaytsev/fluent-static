@@ -36,6 +36,11 @@ impl MessageBundleBuilder {
         }
     }
 
+    pub fn set_name(mut self, name: &str) -> Self {
+        self.bundle_name = name.to_string();
+        self
+    }
+
     pub fn with_default_language(mut self, language_id: &str) -> Result<Self, Error> {
         self.default_language = Some(LanguageIdentifier::from_str(language_id)?);
         Ok(self)
@@ -387,5 +392,11 @@ impl MessageBundleBuilder {
 
     pub fn build(&self) -> Result<TokenStream2, Error> {
         self.validate()?.generate()
+    }
+}
+
+impl Default for MessageBundleBuilder {
+    fn default() -> Self {
+        Self::new("Message")
     }
 }

@@ -6,6 +6,8 @@ pub use unic_langid;
 
 pub use intl_pluralrules;
 
+pub use fluent_static_macros::message_bundle;
+
 pub mod fluent_bundle {
     pub use fluent_bundle::concurrent::FluentBundle;
     pub use fluent_bundle::{
