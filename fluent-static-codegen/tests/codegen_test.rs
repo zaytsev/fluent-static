@@ -3,7 +3,7 @@ use fluent_static_codegen::{generate, MessageBundleCodeGenerator};
 #[test]
 fn test_message_bundle_struct() {
     generate!(
-        "tests/resources/",
+        "tests/resources/bundle/",
         MessageBundleCodeGenerator::new("en"),
         "test_bundle.rs"
     );
