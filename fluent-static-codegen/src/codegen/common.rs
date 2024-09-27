@@ -84,7 +84,7 @@ pub fn language_bundle_lookup_function_definition(
 
 pub fn format_message_function_definition(fn_name: &Ident) -> TokenStream {
     quote! {
-        fn #fn_name(lang_id: &str, message_id: &str, attr: Option<&str>, args: Option<&FluentArgs>) -> Result<Message<'static>, FluentError> {
+        fn #fn_name(lang_id: &str, message_id: &str, attr: Option<&str>, args: Option<&FluentArgs>) -> Result<Message, FluentError> {
             let bundle = get_bundle(lang_id.as_ref());
             let msg = bundle.get_message(message_id).expect("Message not found");
             let pattern = if let Some(attr) = attr {

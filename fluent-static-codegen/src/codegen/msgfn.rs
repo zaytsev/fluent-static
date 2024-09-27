@@ -80,7 +80,7 @@ fn message_function_definition(msg: &Message, delegate_fn: &Ident) -> TokenStrea
     let msg_total_vars = msg.vars().len();
     if msg_total_vars == 0 {
         quote! {
-            pub fn #function_ident(lang_id: impl AsRef<str>) -> Message<'static> {
+            pub fn #function_ident(lang_id: impl AsRef<str>) -> Message {
                 #delegate_fn(lang_id.as_ref(), #message_name_literal, #maybe_attribute_literal, None)
                     .expect("Not fallible without variables; qed")
             }
@@ -102,7 +102,7 @@ fn message_function_definition(msg: &Message, delegate_fn: &Ident) -> TokenStrea
             .unzip();
         let capacity = Literal::usize_unsuffixed(msg_total_vars);
         quote! {
-            pub fn #function_ident<'a>(lang_id: impl AsRef<str>, #(#function_args: impl Into<FluentValue<'a>>),*) -> Result<Message<'static>, FluentError> {
+            pub fn #function_ident<'a>(lang_id: impl AsRef<str>, #(#function_args: impl Into<FluentValue<'a>>),*) -> Result<Message, FluentError> {
                 let mut args = FluentArgs::with_capacity(#capacity);
                 #(#fluent_args)*
                 #delegate_fn(lang_id.as_ref(), #message_name_literal, #maybe_attribute_literal, Some(&args))
@@ -212,7 +212,7 @@ mod test {
                         & EN_BUNDLE
                     }
 
-                    fn format_message(lang_id: &str, message_id: &str, attr: Option<&str>, args: Option<&FluentArgs>) -> Result<Message<'static>, FluentError> {
+                    fn format_message(lang_id: &str, message_id: &str, attr: Option<&str>, args: Option<&FluentArgs>) -> Result<Message, FluentError> {
                         let bundle = get_bundle(lang_id.as_ref());
                         let msg = bundle.get_message(message_id).expect("Message not found");
                         let pattern = if let Some(attr) = attr {
@@ -229,28 +229,28 @@ mod test {
                         }
                     }
 
-                    pub fn test(lang_id: impl AsRef<str>) -> Message<'static> {
+                    pub fn test(lang_id: impl AsRef<str>) -> Message {
                         format_message(lang_id.as_ref(), "test", None, None)
                             .expect("Not fallible without variables; qed")
                     }
 
-                    pub fn test_attr_1(lang_id: impl AsRef<str>) -> Message<'static> {
+                    pub fn test_attr_1(lang_id: impl AsRef<str>) -> Message {
                         format_message(lang_id.as_ref(), "test", Some("attr1"), None)
                             .expect("Not fallible without variables; qed")
                     }
 
-                    pub fn test_attr_2(lang_id: impl AsRef<str>) -> Message<'static> {
+                    pub fn test_attr_2(lang_id: impl AsRef<str>) -> Message {
                         format_message(lang_id.as_ref(), "test", Some("attr2"), None)
                             .expect("Not fallible without variables; qed")
                     }
 
-                    pub fn test_args_1<'a>(lang_id: impl AsRef<str>, name: impl Into<FluentValue<'a>>) -> Result<Message<'static>, FluentError> {
+                    pub fn test_args_1<'a>(lang_id: impl AsRef<str>, name: impl Into<FluentValue<'a>>) -> Result<Message, FluentError> {
                         let mut args = FluentArgs::with_capacity(1);
                         args.set("name", name);
                         format_message(lang_id.as_ref(), "test-args1", None, Some(&args))
                     }
 
-                    pub fn test_order<'a>(lang_id: impl AsRef<str>, zzz: impl Into<FluentValue<'a>>, aaa: impl Into<FluentValue<'a>>) -> Result<Message<'static>, FluentError> {
+                    pub fn test_order<'a>(lang_id: impl AsRef<str>, zzz: impl Into<FluentValue<'a>>, aaa: impl Into<FluentValue<'a>>) -> Result<Message, FluentError> {
                         let mut args = FluentArgs::with_capacity(2);
                         args.set("zzz", zzz);
                         args.set("aaa", aaa);

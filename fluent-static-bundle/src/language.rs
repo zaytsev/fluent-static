@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    str::FromStr,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 use convert_case::{Case, Casing};
 use fluent_bundle::FluentValue;
@@ -95,7 +92,7 @@ impl LanguageBuilder {
             fn #fn_ident #fn_generics(
                 &self,
                 out: &mut W,
-                #(#var_idents: ::fluent_static::fluent_bundle::FluentValue<'a>),*
+                #(#var_idents: ::fluent_static::value::Value<'a>),*
             ) -> ::std::fmt::Result {
                 #body
                 Ok(())
@@ -290,11 +287,32 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                     }
                 }
                 ast::VariantKey::NumberLiteral { value } => {
-                    let f = f64::from_str(&value.to_string())
-                        .map_err(|_| Error::InvalidLiteral(value.to_string()))?;
-                    let lit = Literal::f64_suffixed(f);
+                    let value = value.to_string();
+                    let number = if let Ok(n) = value.parse::<i64>() {
+                        quote! {
+                            ::fluent_static::value::Number::I64(#n)
+                        }
+                    } else if let Ok(n) = value.parse::<u64>() {
+                        quote! {
+                            ::fluent_static::value::Number::U64(#n)
+                        }
+                    } else if let Ok(n) = value.parse::<i128>() {
+                        quote! {
+                            ::fluent_static::value::Number::I128(#n)
+                        }
+                    } else if let Ok(n) = value.parse::<u128>() {
+                        quote! {
+                            ::fluent_static::value::Number::U128(#n)
+                        }
+                    } else if let Ok(n) = value.parse::<f64>() {
+                        quote! {
+                            ::fluent_static::value::Number::F64(#n)
+                        }
+                    } else {
+                        return Err(Error::InvalidLiteral(value));
+                    };
                     quote! {
-                        (None, Some(v), _) if f64::abs(#lit - v) < f64::EPSILON
+                        (None, Some(n), _) if n == & #number
                     }
                 }
             }
@@ -364,7 +382,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
             ExpressionContext::TermArguments { .. } => {
                 let lit = Literal::string(&value.to_string());
                 Ok(quote! {
-                    ::fluent_static::fluent_bundle::FluentValue::from(#lit)
+                    ::fluent_static::value::Value::from(#lit)
                 })
             }
         }
@@ -390,7 +408,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
             ExpressionContext::TermArguments { .. } => {
                 let lit = Literal::string(&value.to_string());
                 Ok(quote! {
-                    ::fluent_static::fluent_bundle::FluentValue::try_number(#lit)
+                    ::fluent_static::value::Value::try_number(#lit)
                 })
             }
         }
@@ -438,7 +456,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                         {
                             let mut out = String::new();
                             self.#fn_ident(&mut out)?;
-                            ::fluent_static::fluent_bundle::FluentValue::from(out)
+                            ::fluent_static::value::Value::from(out)
                         }
                     })
                 } else {
@@ -508,7 +526,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                         {
                             let mut out = String::new();
                             self.#fn_ident(&mut out, #args)?;
-                            ::fluent_static::fluent_bundle::FluentValue::from(out)
+                            ::fluent_static::value::Value::from(out)
                         }
                     })
                 } else {
@@ -532,11 +550,10 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                 // TODO add unicode escaping
                 Ok(quote! {
                     match &#var_ident {
-                        ::fluent_static::fluent_bundle::FluentValue::String(s) => out.write_str(&s)?,
-                        ::fluent_static::fluent_bundle::FluentValue::Number(n) => out.write_str(&n.as_string())?,
-                        ::fluent_static::fluent_bundle::FluentValue::Custom(_) => unimplemented!("Custom types are not supported"),
-                        ::fluent_static::fluent_bundle::FluentValue::None => (),
-                        ::fluent_static::fluent_bundle::FluentValue::Error => (),
+                        ::fluent_static::value::Value::String(s) => out.write_str(&s)?,
+                        ::fluent_static::value::Value::Number(n) => out.write_str(&n.as_string())?,
+                        ::fluent_static::value::Value::Empty => (),
+                        ::fluent_static::value::Value::Error => (),
                     };
                 })
             }
@@ -546,21 +563,20 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                 let number_expr = if has_plural_rules {
                     quote! {
                         {
-                            let plural_category = self.language.plural_rules_cardinal().select(n.value).ok();
-                            (None, Some(n.value), plural_category)
+                            let plural_category = self.language.plural_rules_cardinal().select(n.as_f64()).ok();
+                            (None, Some(n), plural_category)
                         }
                     }
                 } else {
                     quote! {
-                        (None, Some(n.value), None)
+                        (None, Some(n), None)
                     }
                 };
                 Ok(quote! {
                     {
                         match &#var_ident {
-                            ::fluent_static::fluent_bundle::FluentValue::String(s) => (Some(s.as_ref()), None, None),
-                            ::fluent_static::fluent_bundle::FluentValue::Number(n) => #number_expr,
-                            ::fluent_static::fluent_bundle::FluentValue::Custom(_) => unimplemented!("Custom types are not supported"),
+                            ::fluent_static::value::Value::String(s) => (Some(s.as_ref()), None, None),
+                            ::fluent_static::value::Value::Number(n) => #number_expr,
                             _ => (None, None, None)
                         }
                     }
@@ -609,7 +625,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                 .collect::<Result<Vec<TokenStream2>, Error>>()?;
 
             Ok(quote! {
-                match #selector_expr as (Option<&str>, Option<f64>, Option<::fluent_static::intl_pluralrules::PluralCategory>) {
+                match #selector_expr as (Option<&str>, Option<&::fluent_static::value::Number>, Option<::fluent_static::intl_pluralrules::PluralCategory>) {
                     #(#selector_variants),*
                 }
             })

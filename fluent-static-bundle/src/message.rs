@@ -378,14 +378,14 @@ impl MessageBundleBuilder {
             .collect();
 
         quote! {
-            pub fn #fn_ident #fn_generics(&self, #(#var: impl Into<::fluent_static::fluent_bundle::FluentValue<'a>>),*) -> String {
+            pub fn #fn_ident #fn_generics(&self, #(#var: impl Into<::fluent_static::value::Value<'a>>),*) -> ::fluent_static::Message {
                 #(let #var = #var.into();)*
                 let mut out = String::new();
                 match self.language {
                     #(#lang_selectors),*,
                 }.unwrap();
 
-                out
+                ::fluent_static::Message::from(out)
             }
         }
     }

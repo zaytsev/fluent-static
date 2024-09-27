@@ -1,5 +1,3 @@
-use std::{borrow::Cow, fmt::Display, ops::Deref};
-
 pub use accept_language;
 pub use once_cell;
 pub use unic_langid;
@@ -15,6 +13,12 @@ pub mod fluent_bundle {
         FluentArgs, FluentError, FluentMessage, FluentResource, FluentValue,
     };
 }
+
+mod message;
+pub mod value;
+
+pub use message::Message;
+pub use value::Value;
 
 #[macro_export]
 macro_rules! include_source {
@@ -35,43 +39,8 @@ pub trait MessageBundle: LanguageAware {
     fn supported_language_ids() -> &'static [&'static str];
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Message<'a>(Cow<'a, str>);
-
-impl<'a> Message<'a> {
-    pub fn new(value: Cow<'a, str>) -> Self {
-        Self(value)
-    }
-}
-
-impl<'a> Display for Message<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl<'a> Deref for Message<'a> {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        &*self.0
-    }
-}
-
-impl<'a> PartialEq<str> for Message<'a> {
-    fn eq(&self, other: &str) -> bool {
-        &*self.0 == other
-    }
-}
-
-impl<'a> PartialEq<Message<'a>> for &str {
-    fn eq(&self, other: &Message<'a>) -> bool {
-        *self == &*other.0
-    }
-}
-
 #[cfg(feature = "maud")]
-impl<'a> maud::Render for Message<'a> {
+impl maud::Render for Message {
     fn render_to(&self, buffer: &mut String) {
         str::render_to(&self.0, buffer);
     }
