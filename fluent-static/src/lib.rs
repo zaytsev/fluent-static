@@ -1,13 +1,24 @@
-use std::{borrow::Cow, fmt::Display, ops::Deref};
-
 pub use accept_language;
 pub use once_cell;
 pub use unic_langid;
 
+pub use intl_pluralrules;
+
+pub use fluent_static_macros::message_bundle;
+
 pub mod fluent_bundle {
     pub use fluent_bundle::concurrent::FluentBundle;
-    pub use fluent_bundle::{FluentArgs, FluentError, FluentMessage, FluentResource, FluentValue};
+    pub use fluent_bundle::{
+        types::{FluentNumber, FluentNumberOptions, FluentNumberStyle},
+        FluentArgs, FluentError, FluentMessage, FluentResource, FluentValue,
+    };
 }
+
+mod message;
+pub mod value;
+
+pub use message::Message;
+pub use value::Value;
 
 #[macro_export]
 macro_rules! include_source {
@@ -16,43 +27,20 @@ macro_rules! include_source {
     };
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Message<'a>(Cow<'a, str>);
-
-impl<'a> Message<'a> {
-    pub fn new(value: Cow<'a, str>) -> Self {
-        Self(value)
-    }
+pub trait LanguageAware {
+    fn language_id(&self) -> &str;
 }
 
-impl<'a> Display for Message<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl<'a> Deref for Message<'a> {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        &*self.0
-    }
-}
-
-impl<'a> PartialEq<str> for Message<'a> {
-    fn eq(&self, other: &str) -> bool {
-        &*self.0 == other
-    }
-}
-
-impl<'a> PartialEq<Message<'a>> for &str {
-    fn eq(&self, other: &Message<'a>) -> bool {
-        *self == &*other.0
-    }
+pub trait MessageBundle: LanguageAware {
+    fn get(language_id: &str) -> Option<Self>
+    where
+        Self: Sized;
+    fn default_language_id() -> &'static str;
+    fn supported_language_ids() -> &'static [&'static str];
 }
 
 #[cfg(feature = "maud")]
-impl<'a> maud::Render for Message<'a> {
+impl maud::Render for Message {
     fn render_to(&self, buffer: &mut String) {
         str::render_to(&self.0, buffer);
     }
@@ -69,6 +57,12 @@ impl LanguageSpec {
 
 impl AsRef<str> for LanguageSpec {
     fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl LanguageAware for LanguageSpec {
+    fn language_id(&self) -> &str {
         &self.0
     }
 }

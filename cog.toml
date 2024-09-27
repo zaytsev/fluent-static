@@ -29,6 +29,10 @@ post_bump_hooks = ["cargo publish -p fluent-static"]
 path = "fluent-static-codegen"
 post_bump_hooks = ["cargo publish -p fluent-static-codegen"]
 
+[packages.fluent-static-bundle]
+path = "fluent-static-bundle"
+post_bump_hooks = ["cargo publish -p fluent-static-bundle"]
+
 [commit_types]
 bump = { changelog_title = "Dependency updates" }
 
