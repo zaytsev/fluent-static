@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use convert_case::{Case, Casing};
-use fluent_bundle::FluentValue;
 use fluent_syntax::ast;
 use intl_pluralrules::PluralCategory;
 use proc_macro2::{Ident, Literal, TokenStream as TokenStream2};
@@ -17,8 +16,17 @@ use crate::{
 #[derive(Debug, Clone)]
 enum ExpressionContext {
     Inline,
-    Selector { plural_rules: bool },
-    TermArguments { term: FluentMessage },
+    Selector {
+        plural_rules: bool,
+    },
+    TermArguments {
+        term: FluentMessage,
+    },
+    FunctionCall {
+        function_id: String,
+        positional_args: Ident,
+        named_args: Ident,
+    },
 }
 
 pub struct LanguageBuilder {
@@ -287,30 +295,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                     }
                 }
                 ast::VariantKey::NumberLiteral { value } => {
-                    let value = value.to_string();
-                    let number = if let Ok(n) = value.parse::<i64>() {
-                        quote! {
-                            ::fluent_static::value::Number::I64(#n)
-                        }
-                    } else if let Ok(n) = value.parse::<u64>() {
-                        quote! {
-                            ::fluent_static::value::Number::U64(#n)
-                        }
-                    } else if let Ok(n) = value.parse::<i128>() {
-                        quote! {
-                            ::fluent_static::value::Number::I128(#n)
-                        }
-                    } else if let Ok(n) = value.parse::<u128>() {
-                        quote! {
-                            ::fluent_static::value::Number::U128(#n)
-                        }
-                    } else if let Ok(n) = value.parse::<f64>() {
-                        quote! {
-                            ::fluent_static::value::Number::F64(#n)
-                        }
-                    } else {
-                        return Err(Error::InvalidLiteral(value));
-                    };
+                    let number = mk_number(value)?;
                     quote! {
                         (None, Some(n), _) if n == & #number
                     }
@@ -334,7 +319,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
     fn visit_call_arguments(&mut self, arguments: &ast::CallArguments<S>) -> Self::Output {
         match self.current_expr_context() {
             ExpressionContext::TermArguments { term } => {
-                let term = term.clone();
+                let term = term.to_owned();
                 let vars = term.vars();
                 let vars_by_name: BTreeMap<&str, &Ident> = vars
                     .iter()
@@ -359,7 +344,42 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                     #(#args),*
                 })
             }
-            _ => Err(Error::UnexpectedContextState),
+            ExpressionContext::Inline => Err(Error::UnexpectedContextState),
+            ExpressionContext::Selector { .. } => Err(Error::UnexpectedContextState),
+            ExpressionContext::FunctionCall {
+                positional_args,
+                named_args,
+                ..
+            } => {
+                let positional_args_ident = positional_args.clone();
+                let named_args_ident = named_args.clone();
+
+                let positional: Vec<TokenStream2> = arguments
+                    .positional
+                    .iter()
+                    .map(|expr| expr.accept(self))
+                    .collect::<Result<Vec<TokenStream2>, Error>>()?;
+
+                let named = arguments
+                    .named
+                    .iter()
+                    .map(|arg| {
+                        arg.value.accept(self).map(|val| {
+                            let name = Literal::string(&arg.name.name.to_string());
+                            quote! {
+                                (#name, #val)
+                            }
+                        })
+                    })
+                    .collect::<Result<Vec<TokenStream2>, Error>>()?;
+                Ok(quote! {
+                    {
+                        let #positional_args_ident = [ #(#positional),* ];
+                        let #named_args_ident = [ #(#named),* ];
+
+                    }
+                })
+            }
         }
     }
 
@@ -379,7 +399,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                 feature: "Usage of string literal as a selector".to_string(),
                 id: self.current_context()?.id().to_string(),
             }),
-            ExpressionContext::TermArguments { .. } => {
+            ExpressionContext::TermArguments { .. } | ExpressionContext::FunctionCall { .. } => {
                 let lit = Literal::string(&value.to_string());
                 Ok(quote! {
                     ::fluent_static::value::Value::from(#lit)
@@ -391,24 +411,20 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
     fn visit_number_literal(&mut self, value: &S) -> Self::Output {
         match self.current_expr_context() {
             ExpressionContext::Inline => {
-                let s = value.to_string();
-                if let FluentValue::Number(n) = FluentValue::try_number(&s) {
-                    let literal = Literal::string(&n.as_string());
-                    Ok(quote! {
-                        out.write_str(#literal)?;
-                    })
-                } else {
-                    Err(Error::InvalidLiteral(s))
-                }
+                let value = value.to_string();
+                let literal = Literal::string(&value);
+                Ok(quote! {
+                    out.write_str(#literal)?;
+                })
             }
             ExpressionContext::Selector { .. } => Err(Error::UnsupportedFeature {
                 feature: "Usage of number literal as a selector".to_string(),
                 id: self.current_context()?.id().to_string(),
             }),
-            ExpressionContext::TermArguments { .. } => {
-                let lit = Literal::string(&value.to_string());
+            ExpressionContext::TermArguments { .. } | ExpressionContext::FunctionCall { .. } => {
+                let number = mk_number(value)?;
                 Ok(quote! {
-                    ::fluent_static::value::Value::try_number(#lit)
+                    ::fluent_static::value::Value::Number(#number, None)
                 })
             }
         }
@@ -416,10 +432,28 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
 
     fn visit_function_reference(
         &mut self,
-        _id: &ast::Identifier<S>,
-        _arguments: &ast::CallArguments<S>,
+        id: &ast::Identifier<S>,
+        arguments: &ast::CallArguments<S>,
     ) -> Self::Output {
-        unimplemented!("Fluent functions are not yet implemented")
+        let function_id = id.name.to_string();
+        let positional_args = format_ident!("positional_args");
+        let named_args = format_ident!("named_args");
+
+        self.enter_expr_context(ExpressionContext::FunctionCall {
+            function_id: function_id.clone(),
+            positional_args,
+            named_args,
+        });
+
+        let args = arguments.accept(self)?;
+
+        self.leave_expr_context()?;
+
+        Ok(quote! {
+            {
+                #args
+            }
+        })
     }
 
     fn visit_message_reference(
@@ -448,7 +482,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                 feature: "Usage of message reference as selector".to_string(),
                 id: self.current_context()?.id().to_string(),
             }),
-            ExpressionContext::TermArguments { .. } => {
+            ExpressionContext::TermArguments { .. } | ExpressionContext::FunctionCall { .. } => {
                 let (msg_id, msg) = self.find_entry(id, attribute);
                 if let Some(msg) = msg {
                     let fn_ident = msg.fn_ident();
@@ -508,7 +542,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                 feature: "Usage of term reference as selector".to_string(),
                 id: self.current_context()?.id().to_string(),
             }),
-            ExpressionContext::TermArguments { .. } => {
+            ExpressionContext::TermArguments { .. } | ExpressionContext::FunctionCall { .. } => {
                 let (term_id, term) = self.find_entry(id, attribute);
                 if let Some(term) = term.as_ref() {
                     let fn_ident = term.fn_ident();
@@ -548,10 +582,11 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                 // TODO add formatter support
                 // TODO add unicode isolating marks support
                 // TODO add unicode escaping
+                // TODO apply NUMBER format
                 Ok(quote! {
                     match &#var_ident {
                         ::fluent_static::value::Value::String(s) => out.write_str(&s)?,
-                        ::fluent_static::value::Value::Number(n) => out.write_str(&n.as_string())?,
+                        ::fluent_static::value::Value::Number{ value, .. } => out.write_str(&value.as_string())?,
                         ::fluent_static::value::Value::Empty => (),
                         ::fluent_static::value::Value::Error => (),
                     };
@@ -576,7 +611,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                     {
                         match &#var_ident {
                             ::fluent_static::value::Value::String(s) => (Some(s.as_ref()), None, None),
-                            ::fluent_static::value::Value::Number(n) => #number_expr,
+                            ::fluent_static::value::Value::Number { value: n, .. } => #number_expr,
                             _ => (None, None, None)
                         }
                     }
@@ -586,6 +621,13 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                 feature: "Usage of variable reference as a term argument".to_string(),
                 id: self.current_context()?.id().to_string(),
             }),
+            ExpressionContext::FunctionCall { .. } => {
+                let var_ident = self.append_var(id)?;
+                // TODO should value be cloned? just in case if it already used
+                Ok(quote! {
+                    #var_ident
+                })
+            }
         }
     }
 
@@ -646,5 +688,32 @@ fn get_plural_category<S: ToString>(key: &ast::VariantKey<S>) -> Option<PluralCa
         }
     } else {
         None
+    }
+}
+
+fn mk_number<S: ToString>(value: &S) -> Result<TokenStream2, Error> {
+    let value = value.to_string();
+    if let Ok(n) = value.parse::<i64>() {
+        Ok(quote! {
+            ::fluent_static::value::Number::I64(#n)
+        })
+    } else if let Ok(n) = value.parse::<u64>() {
+        Ok(quote! {
+            ::fluent_static::value::Number::U64(#n)
+        })
+    } else if let Ok(n) = value.parse::<i128>() {
+        Ok(quote! {
+            ::fluent_static::value::Number::I128(#n)
+        })
+    } else if let Ok(n) = value.parse::<u128>() {
+        Ok(quote! {
+            ::fluent_static::value::Number::U128(#n)
+        })
+    } else if let Ok(n) = value.parse::<f64>() {
+        Ok(quote! {
+            ::fluent_static::value::Number::F64(#n)
+        })
+    } else {
+        Err(Error::InvalidLiteral(value))
     }
 }

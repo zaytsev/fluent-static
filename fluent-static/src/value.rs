@@ -1,9 +1,17 @@
 use std::{borrow::Cow, str::FromStr};
 
+use format::number::NumberFormat;
+
+pub mod format;
+
 #[derive(Debug, Clone)]
 pub enum Value<'a> {
     String(Cow<'a, str>),
-    Number(Number),
+    Number {
+        value: Number,
+        format: Option<NumberFormat>,
+    },
+    // TODO datetime
     Empty,
     Error,
 }
@@ -16,13 +24,27 @@ impl<'a> Value<'a> {
             value.into()
         }
     }
+
+    pub fn formatted_number(value: impl Into<Number>, number_format: NumberFormat) -> Self {
+        Self::Number {
+            value: value.into(),
+            format: Some(number_format),
+        }
+    }
 }
 
 impl<'a> PartialEq for Value<'a> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Value::String(s), Value::String(o)) => s == o,
-            (Value::Number(s), Value::Number(o)) => s == o,
+            (
+                Value::Number {
+                    value: self_value, ..
+                },
+                Value::Number {
+                    value: other_value, ..
+                },
+            ) => self_value == other_value,
             _ => false,
         }
     }
@@ -166,7 +188,10 @@ impl FromStr for Number {
 
 impl<'a> From<Number> for Value<'a> {
     fn from(value: Number) -> Self {
-        Self::Number(value)
+        Self::Number {
+            value,
+            format: None,
+        }
     }
 }
 
@@ -185,12 +210,18 @@ macro_rules! impl_from_for_number {
             }
             impl From<$t> for Value<'_> {
                 fn from(value: $t) -> Self {
-                    Value::Number(Number::$variant(value as _))
+                    Value::Number {
+                        value: Number::$variant(value as _),
+                        format: None
+                    }
                 }
             }
             impl From<&$t> for Value<'_> {
                 fn from(value: &$t) -> Self {
-                    Value::Number(Number::$variant(*value as _))
+                    Value::Number{
+                        value: Number::$variant(*value as _),
+                        format: None
+                    }
                 }
             }
         )*

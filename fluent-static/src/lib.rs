@@ -20,6 +20,8 @@ pub mod value;
 pub use message::Message;
 pub use value::Value;
 
+pub mod function;
+
 #[macro_export]
 macro_rules! include_source {
     ($name:expr) => {
