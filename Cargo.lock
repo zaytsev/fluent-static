@@ -283,7 +283,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "fluent-static-bundle"
+name = "fluent-static-codegen"
 version = "0.0.1"
 dependencies = [
  "accept-language",
@@ -303,25 +303,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fluent-static-codegen"
-version = "0.5.0"
-dependencies = [
- "accept-language",
- "convert_case",
- "fluent-bundle",
- "fluent-static",
- "fluent-syntax",
- "once_cell",
- "pretty_assertions",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "thiserror",
- "trybuild",
- "unic-langid",
-]
-
-[[package]]
 name = "fluent-static-macros"
 version = "0.1.0"
 dependencies = [
@@ -329,7 +310,7 @@ dependencies = [
  "convert_case",
  "fluent-bundle",
  "fluent-static",
- "fluent-static-bundle",
+ "fluent-static-codegen",
  "fluent-syntax",
  "once_cell",
  "proc-macro2",

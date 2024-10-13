@@ -80,32 +80,6 @@ impl FluentFunctionRegistry {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use crate::Value;
-
-    use super::FluentFunction;
-
-    fn my_test_fn<'a, 'b>(
-        language_id: &'static str,
-        positional_args: &'a [Value<'a>],
-        named_args: &'a [(&'a str, Value<'a>)],
-    ) -> Value<'b> {
-        todo!()
-    }
-
-    fn tn(f: impl FluentFunction) -> &'static str {
-        f.type_name()
-    }
-
-    #[test]
-    fn test_type_name() {
-        let name = tn(my_test_fn);
-
-        assert_eq!("foo", name);
-    }
-}
-
 pub trait FunctionResolver {
     fn find(fn_name: &str) -> Option<impl FluentFn>;
 }

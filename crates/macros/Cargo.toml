@@ -1,6 +1,6 @@
 [package]
-name = "fluent-static-bundle"
-version = "0.0.1"
+name = "fluent-static-macros"
+version = "0.1.0"
 description = "Automatically generate Rust functions from Fluent message files for streamlined localization in Rust applications."
 edition.workspace = true
 homepage.workspace = true
@@ -11,9 +11,9 @@ categories.workspace = true
 keywords.workspace = true
 
 include = ["/src", "README.md", "CHANGELOG.md"]
-exclude = ["tests/*"]
 
 [lib]
+proc-macro = true
 path = "src/lib.rs"
 
 [dependencies]
@@ -27,10 +27,10 @@ convert_case = { workspace = true }
 unic-langid = { workspace = true }
 once_cell = { workspace = true }
 accept-language = { workspace = true }
-intl_pluralrules = { workspace = true }
+wax = { workspace = true }
+
+fluent-static-codegen = { workspace = true }
 
 [dev-dependencies]
-
-pretty_assertions = { workspace = true }
 trybuild = { workspace = true }
 fluent-static = { workspace = true }

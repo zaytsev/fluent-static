@@ -1,10 +1,5 @@
 [workspace]
-members = [
-  "fluent-static",
-  "fluent-static-codegen",
-  "fluent-static-bundle",
-  "fluent-static-macros",
-]
+members = ["crates/lib", "crates/codegen", "crates/macros"]
 resolver = "2"
 
 exclude = ["examples"]
@@ -37,7 +32,6 @@ wax = { version = "0.6.0" }
 pretty_assertions = "1.4"
 trybuild = "1"
 
-fluent-static = { path = "fluent-static" }
-fluent-static-codegen = { path = "fluent-static-codegen" }
-fluent-static-bundle = { path = "fluent-static-bundle" }
-fluent-static-macros = { path = "fluent-static-macros" }
+fluent-static = { path = "crates/lib" }
+fluent-static-codegen = { path = "crates/codegen" }
+fluent-static-macros = { path = "crates/macros" }

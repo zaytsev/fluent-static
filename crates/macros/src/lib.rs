@@ -1,6 +1,6 @@
 use std::{env, ffi::OsString};
 
-use fluent_static_bundle::MessageBundleBuilder;
+use fluent_static_codegen::MessageBundleBuilder;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;

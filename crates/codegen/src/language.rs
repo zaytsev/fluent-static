@@ -424,7 +424,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
             ExpressionContext::TermArguments { .. } | ExpressionContext::FunctionCall { .. } => {
                 let number = mk_number(value)?;
                 Ok(quote! {
-                    ::fluent_static::value::Value::Number(#number, None)
+                    ::fluent_static::value::Value::Number { value: #number, format: None }
                 })
             }
         }

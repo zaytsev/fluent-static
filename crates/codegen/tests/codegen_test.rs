@@ -1,6 +1,6 @@
 use std::{env, fs, path::PathBuf};
 
-use fluent_static_bundle::MessageBundleBuilder;
+use fluent_static_codegen::MessageBundleBuilder;
 
 fn resources_base_dir() -> PathBuf {
     PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("'CARGO_MANIFEST_DIR' not set"))
