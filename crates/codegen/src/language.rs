@@ -1,6 +1,10 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    rc::Rc,
+};
 
 use convert_case::{Case, Casing};
+use fluent_static_value::{Number, Value};
 use fluent_syntax::ast;
 use intl_pluralrules::PluralCategory;
 use proc_macro2::{Ident, Literal, TokenStream as TokenStream2};
@@ -9,6 +13,7 @@ use unic_langid::LanguageIdentifier;
 
 use crate::{
     ast::{Node, Visitor},
+    function::FunctionCallGenerator,
     types::{FluentId, FluentMessage, FluentVariable, PublicFluentId},
     Error,
 };
@@ -23,7 +28,6 @@ enum ExpressionContext {
         term: FluentMessage,
     },
     FunctionCall {
-        function_id: String,
         positional_args: Ident,
         named_args: Ident,
     },
@@ -32,6 +36,7 @@ enum ExpressionContext {
 pub struct LanguageBuilder {
     pending_fns: Vec<FluentMessage>,
     expression_contexts: Vec<ExpressionContext>,
+    fn_call_generator: Rc<dyn FunctionCallGenerator>,
 
     #[allow(dead_code)]
     pub language_id: LanguageIdentifier,
@@ -41,9 +46,13 @@ pub struct LanguageBuilder {
 }
 
 impl LanguageBuilder {
-    pub fn new(language_id: &LanguageIdentifier) -> Self {
+    pub fn new(
+        language_id: &LanguageIdentifier,
+        fn_call_generator: Rc<dyn FunctionCallGenerator>,
+    ) -> Self {
         Self {
             language_id: language_id.clone(),
+            fn_call_generator,
             prefix: language_id.to_string().to_case(Case::Snake),
             pending_fns: Vec::new(),
             registered_fns: BTreeMap::new(),
@@ -168,6 +177,10 @@ impl LanguageBuilder {
             .unwrap_or(&ExpressionContext::Inline)
     }
 
+    fn expr_context_depth(&self) -> usize {
+        self.expression_contexts.len()
+    }
+
     fn find_entry<S: ToString>(
         &self,
         id: &ast::Identifier<S>,
@@ -286,18 +299,18 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                     if get_plural_category(variant_key).is_some() {
                         let category_ident = format_ident!("{}", &name.to_uppercase());
                         quote! {
-                           (Some(#lit), _, _) | (_, _, Some(::fluent_static::intl_pluralrules::PluralCategory::#category_ident))
+                           (Some(::std::borrow::Cow::Borrowed(#lit)), _, _) | (_, _, Some(::fluent_static::intl_pluralrules::PluralCategory::#category_ident))
                         }
                     } else {
                         quote! {
-                            (Some(#lit), None, None)
+                            (Some(::std::borrow::Cow::Borrowed(#lit)), None, None)
                         }
                     }
                 }
                 ast::VariantKey::NumberLiteral { value } => {
                     let number = mk_number(value)?;
                     quote! {
-                        (None, Some(n), _) if n == & #number
+                        (None, Some(n), _) if n == #number
                     }
                 }
             }
@@ -373,11 +386,8 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                     })
                     .collect::<Result<Vec<TokenStream2>, Error>>()?;
                 Ok(quote! {
-                    {
-                        let #positional_args_ident = [ #(#positional),* ];
-                        let #named_args_ident = [ #(#named),* ];
-
-                    }
+                    let #positional_args_ident = [ #(#positional),* ];
+                    let #named_args_ident = [ #(#named),* ];
                 })
             }
         }
@@ -436,24 +446,79 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
         arguments: &ast::CallArguments<S>,
     ) -> Self::Output {
         let function_id = id.name.to_string();
-        let positional_args = format_ident!("positional_args");
-        let named_args = format_ident!("named_args");
+        let index = self.expr_context_depth() + 1;
+        let positional_args = format_ident!("positional_args_{}", index);
+        let named_args = format_ident!("named_args_{}", index);
+
+        let fn_call = if let Some(fn_call) =
+            self.fn_call_generator
+                .generate(&function_id, &positional_args, &named_args)
+        {
+            fn_call
+        } else {
+            return Err(Error::UnimplementedFunction {
+                entry_id: self.current_context()?.id().to_string(),
+                function_id: function_id.clone(),
+            });
+        };
 
         self.enter_expr_context(ExpressionContext::FunctionCall {
-            function_id: function_id.clone(),
             positional_args,
             named_args,
         });
 
         let args = arguments.accept(self)?;
-
         self.leave_expr_context()?;
 
-        Ok(quote! {
-            {
-                #args
+        match self.current_expr_context() {
+            ExpressionContext::Inline => Ok(quote! {
+                {
+                    #args
+                    match #fn_call {
+                        ::fluent_static::value::Value::String(s) => out.write_str(&s)?,
+                        ::fluent_static::value::Value::Number{ value, .. } => out.write_str(&value.as_string())?,
+                        ::fluent_static::value::Value::Empty => (),
+                        ::fluent_static::value::Value::Error => (),
+                    };
+                };
+            }),
+            ExpressionContext::Selector { plural_rules } => {
+                let has_plural_rules = *plural_rules;
+                let number_expr = if has_plural_rules {
+                    quote! {
+                        {
+                            let plural_category = self.language.plural_rules_cardinal().select(n.as_f64()).ok();
+                            (None, Some(n), plural_category)
+                        }
+                    }
+                } else {
+                    quote! {
+                        (None, Some(n), None)
+                    }
+                };
+                Ok(quote! {
+                    {
+                        #args
+
+                        let fn_result = #fn_call;
+
+                        match fn_result {
+                            ::fluent_static::value::Value::String(s) => (Some(s), None, None),
+                            ::fluent_static::value::Value::Number { value: n, .. } => #number_expr,
+                            _ => (None, None, None)
+                        }
+                    }
+                })
             }
-        })
+            ExpressionContext::TermArguments { .. } | ExpressionContext::FunctionCall { .. } => {
+                Ok(quote! {
+                    {
+                        #args
+                        #fn_call
+                    }
+                })
+            }
+        }
     }
 
     fn visit_message_reference(
@@ -599,18 +664,18 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                     quote! {
                         {
                             let plural_category = self.language.plural_rules_cardinal().select(n.as_f64()).ok();
-                            (None, Some(n), plural_category)
+                            (None, Some(n.clone()), plural_category)
                         }
                     }
                 } else {
                     quote! {
-                        (None, Some(n), None)
+                        (None, Some(n.clone()), None::<::fluent_static::intl_pluralrules::PluralCategory>)
                     }
                 };
                 Ok(quote! {
                     {
                         match &#var_ident {
-                            ::fluent_static::value::Value::String(s) => (Some(s.as_ref()), None, None),
+                            ::fluent_static::value::Value::String(s) => (Some(s.clone()), None, None),
                             ::fluent_static::value::Value::Number { value: n, .. } => #number_expr,
                             _ => (None, None, None)
                         }
@@ -666,8 +731,10 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
                 .map(|variant| variant.accept(self))
                 .collect::<Result<Vec<TokenStream2>, Error>>()?;
 
+            //as (Option<&str>, Option<::fluent_static::value::Number>, Option<::fluent_static::intl_pluralrules::PluralCategory>)
+
             Ok(quote! {
-                match #selector_expr as (Option<&str>, Option<&::fluent_static::value::Number>, Option<::fluent_static::intl_pluralrules::PluralCategory>) {
+                match #selector_expr {
                     #(#selector_variants),*
                 }
             })
@@ -693,27 +760,24 @@ fn get_plural_category<S: ToString>(key: &ast::VariantKey<S>) -> Option<PluralCa
 
 fn mk_number<S: ToString>(value: &S) -> Result<TokenStream2, Error> {
     let value = value.to_string();
-    if let Ok(n) = value.parse::<i64>() {
-        Ok(quote! {
-            ::fluent_static::value::Number::I64(#n)
-        })
-    } else if let Ok(n) = value.parse::<u64>() {
-        Ok(quote! {
-            ::fluent_static::value::Number::U64(#n)
-        })
-    } else if let Ok(n) = value.parse::<i128>() {
-        Ok(quote! {
-            ::fluent_static::value::Number::I128(#n)
-        })
-    } else if let Ok(n) = value.parse::<u128>() {
-        Ok(quote! {
-            ::fluent_static::value::Number::U128(#n)
-        })
-    } else if let Ok(n) = value.parse::<f64>() {
-        Ok(quote! {
-            ::fluent_static::value::Number::F64(#n)
-        })
-    } else {
-        Err(Error::InvalidLiteral(value))
+    match Value::try_number(&value) {
+        Value::Number { value, .. } => match value {
+            Number::I64(n) => Ok(quote! {
+                ::fluent_static::value::Number::I64(#n)
+            }),
+            Number::U64(n) => Ok(quote! {
+                ::fluent_static::value::Number::U64(#n)
+            }),
+            Number::I128(n) => Ok(quote! {
+                ::fluent_static::value::Number::I128(#n)
+            }),
+            Number::U128(n) => Ok(quote! {
+                ::fluent_static::value::Number::U128(#n)
+            }),
+            Number::F64(n) => Ok(quote! {
+                ::fluent_static::value::Number::F64(#n)
+            }),
+        },
+        _ => Err(Error::InvalidLiteral(value)),
     }
 }

@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet}, path::{Path, PathBuf}, str::FromStr
+    collections::{BTreeMap, BTreeSet}, path::{Path, PathBuf}, rc::Rc, str::FromStr
 };
 
 use convert_case::{Case, Casing};
@@ -9,16 +9,14 @@ use quote::{format_ident, quote};
 use unic_langid::LanguageIdentifier;
 
 use crate::{
-    ast::Visitor,
-    language::LanguageBuilder,
-    types::{FluentMessage, PublicFluentId},
-    Error,
+    ast::Visitor, function::{FunctionCallGenerator, FunctionRegistry}, language::LanguageBuilder, types::{FluentMessage, PublicFluentId}, Error
 };
 
 pub struct MessageBundleBuilder {
     bundle_name: String,
     default_language: Option<LanguageIdentifier>,
     base_dir: Option<PathBuf>,
+    fn_call_generator: Rc<dyn FunctionCallGenerator>,
     language_bundles: BTreeMap<LanguageIdentifier, LanguageBuilder>,
     language_idents: BTreeMap<LanguageIdentifier, Ident>,
     language_bundles_code: Vec<TokenStream2>,
@@ -30,6 +28,7 @@ impl MessageBundleBuilder {
             bundle_name: name.to_string(),
             default_language: None,
             base_dir: None,
+            fn_call_generator: Rc::new(FunctionRegistry::default()),
             language_idents: BTreeMap::new(),
             language_bundles: BTreeMap::new(),
             language_bundles_code: Vec::new(),
@@ -56,6 +55,11 @@ impl MessageBundleBuilder {
             .as_ref()
             .or_else(|| self.language_idents.first_key_value().map(|(k, _)| k))
             .unwrap()
+    }
+
+    pub fn with_function_call_generator<F>(mut self, fn_call_gen: impl FunctionCallGenerator + 'static) -> Self {
+        self.fn_call_generator = Rc::new(fn_call_gen);
+        self
     }
 
     pub fn add_resource(
@@ -93,7 +97,7 @@ impl MessageBundleBuilder {
         let lang_bundle = self
             .language_bundles
             .entry(language_id)
-            .or_insert_with_key(|lang_id| LanguageBuilder::new(lang_id));
+            .or_insert_with_key(|lang_id| LanguageBuilder::new(lang_id, self.fn_call_generator.clone()));
 
         self.language_bundles_code
             .push(lang_bundle.visit_resource(&ast)?);
@@ -175,9 +179,6 @@ impl MessageBundleBuilder {
         let message_fns = self.generate_message_fns(&bundle_languages_enum);
         let default_language_literal = Literal::string(&self.default_language().to_string());
 
-        // impl ::fluent_static::LanguageAware for self::#bundle_ident {
-        // }
-
         Ok(quote! {
             #bundle_languages_code
 
@@ -191,7 +192,6 @@ impl MessageBundleBuilder {
                     self.language.language_id()
                 }
             }
-
 
             impl ::fluent_static::MessageBundle for self::#bundle_ident {
                 fn get(language_id: &str) -> Option<Self> {

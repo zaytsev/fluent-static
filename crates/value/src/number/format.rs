@@ -33,7 +33,7 @@ macro_rules! create_currency_code_enum {
         }
 
         impl ::std::str::FromStr for CurrencyCode {
-            type Err = $crate::value::format::number::InvalidCurrencyCode;
+            type Err = $crate::number::format::InvalidCurrencyCode;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s {
@@ -261,4 +261,18 @@ pub struct NumberFormat {
     pub maximum_fraction_digits: Option<usize>,
     pub minimum_significant_digits: Option<usize>,
     pub maximum_significant_digits: Option<usize>,
+}
+
+impl Default for NumberFormat {
+    fn default() -> Self {
+        Self {
+            style: Some(NumberStyle::Decimal),
+            use_grouping: None,
+            minimum_integer_digits: None,
+            minimum_fraction_digits: None,
+            maximum_fraction_digits: None,
+            minimum_significant_digits: None,
+            maximum_significant_digits: None,
+        }
+    }
 }

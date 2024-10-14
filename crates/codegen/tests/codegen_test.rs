@@ -134,3 +134,23 @@ fn test_references() {
     let test_cases = trybuild::TestCases::new();
     test_cases.pass("tests/sources/refs/basic.rs");
 }
+
+#[test]
+fn test_functions() {
+    let strings = MessageBundleBuilder::new("BuiltinFns")
+        .with_default_language("en")
+        .unwrap()
+        .with_base_dir(resources_base_dir())
+        .add_resource("en", "functions/builtins-en.ftl")
+        .unwrap()
+        .add_resource("it", "functions/builtins-it.ftl")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    fs::write(output_dir().join("builtin_fns.rs"), strings.to_string())
+        .expect("Error writing generated source");
+
+    let test_cases = trybuild::TestCases::new();
+    test_cases.pass("tests/sources/functions/builtins.rs");
+}

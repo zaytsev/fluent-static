@@ -16,7 +16,6 @@ include = ["/src", "README.md", "CHANGELOG.md"]
 path = "src/lib.rs"
 
 [dependencies]
-fluent-bundle = { workspace = true }
 unic-langid = { workspace = true }
 once_cell = { workspace = true }
 accept-language = { workspace = true }
@@ -29,9 +28,11 @@ http = { version = "1.1", optional = true }
 
 maud = { version = "0.26", optional = true }
 
-fluent-static-macros = { workspace = true }
 thiserror = { workspace = true }
-paste = { workspace = true }
+
+fluent-static-macros = { workspace = true }
+fluent-static-value = { workspace = true }
+fluent-static-function = { workspace = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

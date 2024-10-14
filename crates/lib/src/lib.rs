@@ -4,23 +4,12 @@ pub use unic_langid;
 
 pub use intl_pluralrules;
 
+pub use fluent_static_function as function;
 pub use fluent_static_macros::message_bundle;
-
-pub mod fluent_bundle {
-    pub use fluent_bundle::concurrent::FluentBundle;
-    pub use fluent_bundle::{
-        types::{FluentNumber, FluentNumberOptions, FluentNumberStyle},
-        FluentArgs, FluentError, FluentMessage, FluentResource, FluentValue,
-    };
-}
+pub use fluent_static_value as value;
 
 mod message;
-pub mod value;
-
 pub use message::Message;
-pub use value::Value;
-
-pub mod function;
 
 #[macro_export]
 macro_rules! include_source {

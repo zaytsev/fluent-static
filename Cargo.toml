@@ -1,5 +1,11 @@
 [workspace]
-members = ["crates/lib", "crates/codegen", "crates/macros"]
+members = [
+  "crates/value",
+  "crates/function",
+  "crates/codegen",
+  "crates/macros",
+  "crates/lib",
+]
 resolver = "2"
 
 exclude = ["examples"]
@@ -35,3 +41,5 @@ trybuild = "1"
 fluent-static = { path = "crates/lib" }
 fluent-static-codegen = { path = "crates/codegen" }
 fluent-static-macros = { path = "crates/macros" }
+fluent-static-value = { path = "crates/value" }
+fluent-static-function = { path = "crates/function" }

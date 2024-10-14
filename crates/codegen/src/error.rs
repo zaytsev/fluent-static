@@ -85,6 +85,12 @@ pub enum Error {
         entry_id: String,
         reference_id: String,
     },
+
+    #[error("Entry {entry_id} references unimplemented function '{function_id}'. Register function in function registry before use.")]
+    UnimplementedFunction {
+        entry_id: String,
+        function_id: String,
+    },
 }
 
 #[derive(Debug)]

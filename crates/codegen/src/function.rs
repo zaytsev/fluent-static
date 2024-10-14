@@ -1,104 +1,65 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 
+use fluent_static_function::FluentFunctionDescriptor;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::Ident;
 
-pub enum Arg {
-    String,
-    Number,
-    Placeholder,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ValidationError {
-    #[error("Function {fn_name} is called with unexpected number of positional params: expected {expected}, actual {actual}")]
-    NumberOfPositionalParams {
-        fn_name: &'static str,
-        expected: usize,
-        actual: usize,
-    },
-
-    #[error("Function {fn_name} doesn't support '{feature}' yet")]
-    Unimplemented {
-        fn_name: &'static str,
-        feature: Cow<'static, str>,
-    },
-
-    #[error("Function {fn_name} called with unexpected argument {arg_name}")]
-    InvalidArgument {
-        fn_name: &'static str,
-        arg_name: &'static str,
-    },
-
-    #[error("Function {fn_name} called with unexpected argument {arg_name} value {arg_value}")]
-    InvalidArgumentValue {
-        fn_name: &'static str,
-        arg_name: &'static str,
-        arg_value: Cow<'static, str>,
-    },
-}
-
-pub trait ArgumentsValidator {
-    fn validate(function_name: &str, positional_args: Vec<Arg>, named_args: HashMap<&str, Arg>);
-}
-
-pub struct BuiltinFunctionsValidator {}
-
-impl ArgumentsValidator for BuiltinFunctionsValidator {
-    fn validate(function_name: &str, positional_args: Vec<Arg>, named_args: HashMap<&str, Arg>) {
-        match function_name {
-            "NUMBER" => todo!(),
-            _ => todo!(),
-        }
-    }
-}
-
-pub trait CodeGenerator {
-    fn generate_call(
+pub trait FunctionCallGenerator {
+    fn generate(
         &self,
         function_name: &str,
-        positional_args: Ident,
-        named_args: Ident,
+        positional_args: &Ident,
+        named_args: &Ident,
     ) -> Option<TokenStream>;
 }
 
-pub struct Registry {
-    fns: HashMap<String, Ident>,
+pub struct FunctionRegistry {
+    fns: HashMap<String, TokenStream>,
 }
 
-impl Registry {
-    pub fn register(&mut self, fluent_function_name: &str, rust_function_name: &str) -> &Self {
-        self.fns.insert(
-            fluent_function_name.to_string(),
-            format_ident!("{}", rust_function_name),
-        );
+impl FunctionRegistry {
+    pub fn register(
+        &mut self,
+        function_id: &str,
+        function_descriptor: impl FluentFunctionDescriptor,
+    ) -> &Self {
+        self.fns
+            .insert(function_id.to_string(), Self::fqn(function_descriptor));
         self
     }
-}
 
-impl Default for Registry {
-    fn default() -> Self {
-        let mut fns = HashMap::new();
-        fns.insert(
-            "NUMBER".to_string(),
-            format_ident!("::fluent_static::function::builtins::number"),
-        );
+    fn fqn(function_descriptor: impl FluentFunctionDescriptor) -> TokenStream {
+        let path = function_descriptor.type_name();
 
-        Self { fns }
+        let parts: Vec<&str> = path.split("::").collect();
+        let idents: Vec<_> = parts.iter().map(|part| format_ident!("{}", part)).collect();
+
+        quote! { #(#idents)::* }
     }
 }
 
-impl CodeGenerator for Registry {
-    fn generate_call(
+impl Default for FunctionRegistry {
+    fn default() -> Self {
+        let fns = HashMap::new();
+        let mut result = Self { fns };
+
+        result.register("NUMBER", fluent_static_function::builtins::number);
+
+        result
+    }
+}
+
+impl FunctionCallGenerator for FunctionRegistry {
+    fn generate(
         &self,
         function_name: &str,
-        positional_args: Ident,
-        named_args: Ident,
+        positional_args: &Ident,
+        named_args: &Ident,
     ) -> Option<TokenStream> {
         if let Some(fn_ident) = self.fns.get(function_name) {
             Some(quote! {
-                #fn_ident(#positional_args, #named_args)
+                #fn_ident(&#positional_args, &#named_args)
             })
         } else {
             None
