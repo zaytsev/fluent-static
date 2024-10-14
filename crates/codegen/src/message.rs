@@ -57,7 +57,7 @@ impl MessageBundleBuilder {
             .unwrap()
     }
 
-    pub fn with_function_call_generator<F>(mut self, fn_call_gen: impl FunctionCallGenerator + 'static) -> Self {
+    pub fn with_function_call_generator(mut self, fn_call_gen: impl FunctionCallGenerator + 'static) -> Self {
         self.fn_call_generator = Rc::new(fn_call_gen);
         self
     }

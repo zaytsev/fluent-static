@@ -32,10 +32,19 @@ impl FunctionRegistry {
     fn fqn(function_descriptor: impl FluentFunctionDescriptor) -> TokenStream {
         let path = function_descriptor.type_name();
 
+        // HACK fluent_static reexports fluent_static_function,
+        // need to patch function name
+        // to avoid fluent_static_function dependency
+        let path = if path.starts_with("fluent_static_function::builtins") {
+            path.replace("fluent_static_function", "fluent_static::function")
+        } else {
+            path.to_string()
+        };
+
         let parts: Vec<&str> = path.split("::").collect();
         let idents: Vec<_> = parts.iter().map(|part| format_ident!("{}", part)).collect();
 
-        quote! { #(#idents)::* }
+        quote! { ::#(#idents)::* }
     }
 }
 

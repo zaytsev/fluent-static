@@ -1,9 +1,12 @@
-use std::{env, ffi::OsString};
+use std::{collections::HashMap, env, ffi::OsString};
 
-use fluent_static_codegen::MessageBundleBuilder;
+use fluent_static_codegen::{
+    function::{FunctionCallGenerator, FunctionRegistry},
+    MessageBundleBuilder,
+};
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
+use proc_macro2::{Span, TokenStream as TokenStream2};
+use quote::{format_ident, quote};
 use syn::{
     parse::Parse, parse_macro_input, punctuated::Punctuated, spanned::Spanned, token::Comma, Ident,
     ItemStruct, LitStr, Result as SyntaxResult, Token,
@@ -58,16 +61,43 @@ struct MessageBundle {
 struct FluentResource {
     path: String,
     language: String,
+    span: Span,
 }
 
 impl Parse for FluentResource {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let span = input.span();
         let content;
         syn::parenthesized!(content in input);
         let path: String = content.parse::<LitStr>()?.value();
         content.parse::<Token![,]>()?;
         let language: String = content.parse::<LitStr>()?.value();
-        Ok(FluentResource { path, language })
+        Ok(FluentResource {
+            path,
+            language,
+            span,
+        })
+    }
+}
+
+struct FunctionMapping {
+    fluent_id: LitStr,
+    fn_ident: Option<Ident>,
+}
+
+impl Parse for FunctionMapping {
+    fn parse(input: syn::parse::ParseStream) -> SyntaxResult<Self> {
+        let fluent_id = input.parse::<LitStr>()?;
+        let fn_ident = if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+            Some(input.parse::<Ident>()?)
+        } else {
+            None
+        };
+        Ok(FunctionMapping {
+            fluent_id,
+            fn_ident,
+        })
     }
 }
 
@@ -75,9 +105,10 @@ impl Parse for MessageBundle {
     fn parse(input: syn::parse::ParseStream) -> SyntaxResult<Self> {
         let base_dir = get_project_dir()
             .ok_or_else(|| syntax_err!(input.span(), "Unable to get project directory"))?;
-        let mut builder = MessageBundleBuilder::default().with_base_dir(base_dir);
 
-        let mut includes = Vec::new();
+        let mut fluent_resources: Vec<FluentResource> = Vec::new();
+        let mut function_mappings: Vec<FunctionMapping> = Vec::new();
+        let mut lang_def: Option<LitStr> = None;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -89,25 +120,17 @@ impl Parse for MessageBundle {
                     syn::bracketed!(resource_list in input);
                     let resources: Punctuated<FluentResource, Comma> =
                         resource_list.parse_terminated(FluentResource::parse)?;
-
-                    for resource in resources {
-                        builder = builder
-                            .add_resource(&resource.language, &resource.path)
-                            .map_err(|e| {
-                                syntax_err!(
-                                    resource_list.span(),
-                                    "Error processing resource: {}",
-                                    e
-                                )
-                            })?;
-                        includes.push(resource.path);
-                    }
+                    fluent_resources.extend(resources);
                 }
                 "default_language" => {
-                    let lang: LitStr = input.parse()?;
-                    builder = builder.with_default_language(&lang.value()).map_err(|e| {
-                        syntax_err!(input.span(), "Error parsing default language: {}", e)
-                    })?;
+                    lang_def = Some(input.parse()?);
+                }
+                "functions" => {
+                    let content;
+                    syn::parenthesized!(content in input);
+                    let fn_mappings: Punctuated<FunctionMapping, Comma> =
+                        content.parse_terminated(FunctionMapping::parse)?;
+                    function_mappings.extend(fn_mappings);
                 }
                 attr => return Err(syntax_err!(ident.span(), "Unexpected attribute {attr}")),
             }
@@ -117,6 +140,84 @@ impl Parse for MessageBundle {
             }
         }
 
-        Ok(MessageBundle { builder, includes })
+        if fluent_resources.is_empty() {
+            Err(syntax_err!(
+                input.span(),
+                "No Fluent resources defined. Missing or empty 'resources' attribute"
+            ))
+        } else if lang_def.is_none() {
+            Err(syntax_err!(
+                input.span(),
+                "No default/fallback language is set. Missing 'default_language' attribute"
+            ))
+        } else {
+            let mut builder = MessageBundleBuilder::default().with_base_dir(base_dir);
+            let mut includes = Vec::new();
+
+            builder = builder
+                .with_default_language(&lang_def.unwrap().value())
+                .map_err(|e| syntax_err!(input.span(), "Error parsing default language: {}", e))?;
+
+            if !function_mappings.is_empty() {
+                builder = builder.with_function_call_generator(BundleFunctionCallGenerator::new(
+                    function_mappings,
+                ));
+            }
+
+            for resource in fluent_resources {
+                builder = builder
+                    .add_resource(&resource.language, &resource.path)
+                    .map_err(|e| syntax_err!(resource.span, "Error processing resource: {}", e))?;
+                includes.push(resource.path);
+            }
+
+            Ok(MessageBundle { builder, includes })
+        }
+    }
+}
+
+struct BundleFunctionCallGenerator {
+    fns: HashMap<String, TokenStream2>,
+    registry: FunctionRegistry,
+}
+
+impl BundleFunctionCallGenerator {
+    pub fn new(fn_mappings: Vec<FunctionMapping>) -> Self {
+        let fns = fn_mappings
+            .into_iter()
+            .map(|mapping| {
+                let ident = mapping
+                    .fn_ident
+                    .unwrap_or_else(|| format_ident!("{}", mapping.fluent_id.value()));
+                (
+                    mapping.fluent_id.value(),
+                    quote! {
+                        #ident
+                    },
+                )
+            })
+            .collect();
+
+        let registry = FunctionRegistry::default();
+
+        Self { fns, registry }
+    }
+}
+
+impl FunctionCallGenerator for BundleFunctionCallGenerator {
+    fn generate(
+        &self,
+        function_name: &str,
+        positional_args: &Ident,
+        named_args: &Ident,
+    ) -> Option<TokenStream2> {
+        if let Some(fn_ident) = self.fns.get(function_name) {
+            Some(quote! {
+                Self::#fn_ident(&#positional_args, &#named_args)
+            })
+        } else {
+            self.registry
+                .generate(function_name, positional_args, named_args)
+        }
     }
 }
