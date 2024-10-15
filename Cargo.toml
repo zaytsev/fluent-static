@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/value",
+  "crates/formatter",
   "crates/function",
   "crates/codegen",
   "crates/macros",

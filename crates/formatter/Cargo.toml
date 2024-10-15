@@ -1,0 +1,23 @@
+[package]
+name = "fluent-static-formatter"
+version = "0.1.0"
+description = "Automatically generate Rust functions from Fluent message files for streamlined localization in Rust applications."
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+
+include = ["/src", "README.md"]
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+fluent-static-value = { workspace = true }
+once_cell = { workspace = true }
+thiserror = { workspace = true }
+
+rust_icu_unumberformatter = "5.0.0"
