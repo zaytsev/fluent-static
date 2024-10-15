@@ -1,17 +1,18 @@
+use std::fmt::Display;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NumberStyle {
     Decimal,
     Currency {
         code: CurrencyCode,
-        style: Option<CurrencyDisplayStyle>,
-        sign: Option<CurrencySignMode>,
+        style: CurrencyDisplayStyle,
+        sign: CurrencySignMode,
     },
     Percent,
     Unit {
         identifier: UnitIdentifier,
-        style: Option<UnitDisplayStyle>,
+        style: UnitDisplayStyle,
     },
 }
 
@@ -27,13 +28,13 @@ pub struct InvalidCurrencyCode(String);
 
 macro_rules! create_currency_code_enum {
     ($($code:ident),*) => {
-        #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+        #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
         pub enum CurrencyCode {
             $($code),*
         }
 
-        impl ::std::str::FromStr for CurrencyCode {
-            type Err = $crate::number::format::InvalidCurrencyCode;
+        impl FromStr for CurrencyCode {
+            type Err = InvalidCurrencyCode;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s {
@@ -43,7 +44,7 @@ macro_rules! create_currency_code_enum {
             }
         }
 
-        impl ::std::fmt::Display for CurrencyCode {
+        impl Display for CurrencyCode {
             fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
                 let s = match self {
                     $(CurrencyCode::$code => stringify!($code)),*
@@ -67,7 +68,7 @@ create_currency_code_enum!(
     XTS, XUA, XXX, YER, ZAR, ZMW, ZWG
 );
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CurrencyDisplayStyle {
     Code,
     Symbol,
@@ -99,7 +100,7 @@ impl Default for CurrencyDisplayStyle {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CurrencySignMode {
     Standard,
     Accounting,
@@ -127,31 +128,52 @@ impl Default for CurrencySignMode {
     }
 }
 
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("Invalid currency sign mode: '{0}'")]
+pub struct InvalidUnitIdentifierError(String);
+
 macro_rules! generate_unit_identifier {
     ($($raw_id:ident),*) => {
         ::paste::paste! {
-            #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+            #[derive(Debug, Clone, PartialEq, Eq, Hash)]
             pub enum UnitIdentifier {
+                Derived(Box<UnitIdentifier>, Box<UnitIdentifier>),
                 $( [< $raw_id:camel >] ),*
             }
 
-            impl ::std::str::FromStr for UnitIdentifier {
-                type Err = ();
+            impl UnitIdentifier {
+                pub fn per(&self, denominator: UnitIdentifier) -> UnitIdentifier {
+                    Self::Derived(Box::new(self.clone()), Box::new(denominator))
+                }
+            }
+
+            impl FromStr for UnitIdentifier {
+                type Err = InvalidUnitIdentifierError;
 
                 fn from_str(s: &str) -> Result<Self, Self::Err> {
-                    match s.replace('-', "_").to_lowercase().as_str() {
+                    match s {
                         $(stringify!($raw_id) => Ok(UnitIdentifier::[< $raw_id:camel >]),)*
-                        _ => Err(()),
+                        _ => if let Some(index) = s.find("-per-") {
+                                let (left_str, right_str) = s.split_at(index);
+                                let right_str = &right_str[5..]; // Skip the "-per-" part
+
+                                let left = UnitIdentifier::from_str(left_str)?;
+                                let right = UnitIdentifier::from_str(right_str)?;
+
+                                Ok(UnitIdentifier::Derived(Box::new(left), Box::new(right)))
+                            } else {
+                                Err(InvalidUnitIdentifierError(s.to_string()))
+                        }
                     }
                 }
             }
 
-            impl ::std::fmt::Display for UnitIdentifier {
+            impl Display for UnitIdentifier {
                 fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-                    let s = match self {
-                        $(UnitIdentifier::[< $raw_id:camel >] => stringify!($raw_id)),*
-                    }.replace('_', "-");
-                    f.write_str(s.as_str())
+                    match self {
+                        UnitIdentifier::Derived(n, d) => write!(f, "{}-per-{}", n, d),
+                        $(UnitIdentifier::[< $raw_id:camel >] => f.write_str(stringify!($raw_id))),*
+                    }
                 }
             }
         }
@@ -168,7 +190,6 @@ generate_unit_identifier!(
     day,
     degree,
     fahrenheit,
-    fluid_ounce,
     foot,
     gallon,
     gigabit,
@@ -187,7 +208,6 @@ generate_unit_identifier!(
     meter,
     microsecond,
     mile,
-    mile_scandinavian,
     milliliter,
     millimeter,
     millisecond,
@@ -207,7 +227,7 @@ generate_unit_identifier!(
     year
 );
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum UnitDisplayStyle {
     Short,
     Narrow,
@@ -220,11 +240,12 @@ impl Default for UnitDisplayStyle {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GroupingStyle {
     Always,
     Auto,
     Min2,
+    Off,
 }
 
 impl Default for GroupingStyle {
@@ -242,7 +263,8 @@ impl FromStr for GroupingStyle {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "auto" | "true" | "false" => Ok(Self::Auto),
+            "auto" | "true" => Ok(Self::Auto),
+            "off" | "false" => Ok(Self::Off),
             "always" => Ok(Self::Always),
             "min2" => Ok(Self::Min2),
             _ => Err(InvalidGroupingStyleError(s.to_string())),
@@ -250,11 +272,11 @@ impl FromStr for GroupingStyle {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NumberFormat {
-    pub style: Option<NumberStyle>,
+    pub style: NumberStyle,
 
-    pub use_grouping: Option<GroupingStyle>,
+    pub use_grouping: GroupingStyle,
 
     pub minimum_integer_digits: Option<usize>,
     pub minimum_fraction_digits: Option<usize>,
@@ -266,13 +288,35 @@ pub struct NumberFormat {
 impl Default for NumberFormat {
     fn default() -> Self {
         Self {
-            style: Some(NumberStyle::Decimal),
-            use_grouping: None,
+            style: NumberStyle::Decimal,
+            use_grouping: GroupingStyle::Auto,
             minimum_integer_digits: None,
             minimum_fraction_digits: None,
             maximum_fraction_digits: None,
             minimum_significant_digits: None,
             maximum_significant_digits: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::number::format::UnitIdentifier;
+
+    #[test]
+    fn test_unit_from_str() {
+        assert_eq!(UnitIdentifier::Meter, "meter".parse().unwrap());
+        assert_eq!(
+            UnitIdentifier::Meter.per(UnitIdentifier::Second),
+            "meter-per-second".parse().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_unit_display() {
+        assert_eq!(
+            "kilometer-per-hour",
+            format!("{}", UnitIdentifier::Kilometer.per(UnitIdentifier::Hour))
+        );
     }
 }
