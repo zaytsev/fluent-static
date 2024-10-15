@@ -1,5 +1,5 @@
 [workspace]
-members = ["axum", "simple"]
+members = ["axum", "simple", "procmacro"]
 resolver = "2"
 
 [workspace.package]
