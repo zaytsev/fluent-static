@@ -19,9 +19,9 @@ fn output_dir() -> PathBuf {
 #[test]
 fn test_basic_messages() {
     let basic = MessageBundleBuilder::new("Basic")
-        .with_default_language("en")
+        .set_default_language("en")
         .unwrap()
-        .with_base_dir(resources_base_dir())
+        .set_resources_dir(resources_base_dir())
         .add_resource("en", "basic-en.ftl")
         .unwrap()
         .add_resource("it", "basic-it.ftl")
@@ -29,7 +29,8 @@ fn test_basic_messages() {
         .build()
         .unwrap();
 
-    fs::write(output_dir().join("basic.rs"), basic.to_string())
+    basic
+        .write_to_file(output_dir().join("basic.rs"))
         .expect("Error writing generated source");
 
     let test_cases = trybuild::TestCases::new();
@@ -39,9 +40,9 @@ fn test_basic_messages() {
 #[test]
 fn test_compound_messages() {
     let attributes = MessageBundleBuilder::new("Attributes")
-        .with_default_language("en")
+        .set_default_language("en")
         .unwrap()
-        .with_base_dir(resources_base_dir())
+        .set_resources_dir(resources_base_dir())
         .add_resource("en", "attributes-en.ftl")
         .unwrap()
         .add_resource("it", "attributes-it.ftl")
@@ -49,7 +50,8 @@ fn test_compound_messages() {
         .build()
         .unwrap();
 
-    fs::write(output_dir().join("attributes.rs"), attributes.to_string())
+    attributes
+        .write_to_file(output_dir().join("attributes.rs"))
         .expect("Error writing generated source");
 
     let test_cases = trybuild::TestCases::new();
@@ -59,9 +61,9 @@ fn test_compound_messages() {
 #[test]
 fn test_selector_messages() {
     let strings = MessageBundleBuilder::new("Strings")
-        .with_default_language("en")
+        .set_default_language("en")
         .unwrap()
-        .with_base_dir(resources_base_dir())
+        .set_resources_dir(resources_base_dir())
         .add_resource("en", "selectors/strings-en.ftl")
         .unwrap()
         .add_resource("it", "selectors/strings-it.ftl")
@@ -69,16 +71,14 @@ fn test_selector_messages() {
         .build()
         .unwrap();
 
-    fs::write(
-        output_dir().join("selectors_strings.rs"),
-        strings.to_string(),
-    )
-    .expect("Error writing generated source");
+    strings
+        .write_to_file(output_dir().join("selectors_strings.rs"))
+        .expect("Error writing generated source");
 
     let numbers = MessageBundleBuilder::new("Numbers")
-        .with_default_language("en")
+        .set_default_language("en")
         .unwrap()
-        .with_base_dir(resources_base_dir())
+        .set_resources_dir(resources_base_dir())
         .add_resource("en", "selectors/numbers-en.ftl")
         .unwrap()
         .add_resource("it", "selectors/numbers-it.ftl")
@@ -86,16 +86,14 @@ fn test_selector_messages() {
         .build()
         .unwrap();
 
-    fs::write(
-        output_dir().join("selectors_numbers.rs"),
-        numbers.to_string(),
-    )
-    .expect("Error writing generated source");
+    numbers
+        .write_to_file(output_dir().join("selectors_numbers.rs"))
+        .expect("Error writing generated source");
 
     let plural_rules = MessageBundleBuilder::new("Prs")
-        .with_default_language("en")
+        .set_default_language("en")
         .unwrap()
-        .with_base_dir(resources_base_dir())
+        .set_resources_dir(resources_base_dir())
         .add_resource("en", "selectors/pluralrules-en.ftl")
         .unwrap()
         .add_resource("pl", "selectors/pluralrules-pl.ftl")
@@ -103,11 +101,9 @@ fn test_selector_messages() {
         .build()
         .unwrap();
 
-    fs::write(
-        output_dir().join("selectors_pluralrules.rs"),
-        plural_rules.to_string(),
-    )
-    .expect("Error writing generated source");
+    plural_rules
+        .write_to_file(output_dir().join("selectors_pluralrules.rs"))
+        .expect("Error writing generated source");
 
     let test_cases = trybuild::TestCases::new();
     test_cases.pass("tests/sources/selectors/strings.rs");
@@ -117,10 +113,10 @@ fn test_selector_messages() {
 
 #[test]
 fn test_references() {
-    let strings = MessageBundleBuilder::new("BasicRefs")
-        .with_default_language("en")
+    let bundle = MessageBundleBuilder::new("BasicRefs")
+        .set_default_language("en")
         .unwrap()
-        .with_base_dir(resources_base_dir())
+        .set_resources_dir(resources_base_dir())
         .add_resource("en", "refs/basic-en.ftl")
         .unwrap()
         .add_resource("it", "refs/basic-it.ftl")
@@ -128,7 +124,8 @@ fn test_references() {
         .build()
         .unwrap();
 
-    fs::write(output_dir().join("basic_refs.rs"), strings.to_string())
+    bundle
+        .write_to_file(output_dir().join("basic_refs.rs"))
         .expect("Error writing generated source");
 
     let test_cases = trybuild::TestCases::new();
@@ -137,10 +134,10 @@ fn test_references() {
 
 #[test]
 fn test_functions() {
-    let strings = MessageBundleBuilder::new("BuiltinFns")
-        .with_default_language("en")
+    let bundle = MessageBundleBuilder::new("BuiltinFns")
+        .set_default_language("en")
         .unwrap()
-        .with_base_dir(resources_base_dir())
+        .set_resources_dir(resources_base_dir())
         .add_resource("en", "functions/builtins-en.ftl")
         .unwrap()
         .add_resource("it", "functions/builtins-it.ftl")
@@ -148,7 +145,8 @@ fn test_functions() {
         .build()
         .unwrap();
 
-    fs::write(output_dir().join("builtin_fns.rs"), strings.to_string())
+    bundle
+        .write_to_file(output_dir().join("builtin_fns.rs"))
         .expect("Error writing generated source");
 
     let test_cases = trybuild::TestCases::new();

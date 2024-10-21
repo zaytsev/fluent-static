@@ -12,6 +12,29 @@ use crate::{
     ast::Visitor, function::{FunctionCallGenerator, FunctionRegistry}, language::LanguageBuilder, types::{FluentMessage, PublicFluentId}, Error
 };
 
+pub struct MessageBundle {
+    name: String,
+    code: TokenStream2,
+}
+
+impl MessageBundle {
+    pub fn builder(bundle_name: &str) -> MessageBundleBuilder {
+        MessageBundleBuilder::new(bundle_name)
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn write_to_file(&self, path: impl AsRef<Path>) -> Result<(), std::io::Error> {
+        std::fs::write(path, self.code.to_string())
+    }
+
+    pub fn tokens(&self) -> &TokenStream2 {
+        &self.code
+    }
+}
+
 pub struct MessageBundleBuilder {
     bundle_name: String,
     default_language: Option<LanguageIdentifier>,
@@ -39,12 +62,12 @@ impl MessageBundleBuilder {
         }
     }
 
-    pub fn set_name(mut self, name: &str) -> Self {
+    pub fn set_bundle_name(&mut self, name: &str) -> &mut Self {
         self.bundle_name = name.to_string();
         self
     }
 
-    pub fn set_formatter(mut self, formatter_fn_name: &str) -> Result<Self, Error> {
+    pub fn set_message_formatter_fn(&mut self, formatter_fn_name: &str) -> Result<&mut Self, Error> {
         let expr: syn::Expr = syn::parse_str(formatter_fn_name)?;
         self.formatter_fn = quote! {
             #expr
@@ -52,13 +75,18 @@ impl MessageBundleBuilder {
         Ok(self)
     }
 
-    pub fn with_default_language(mut self, language_id: &str) -> Result<Self, Error> {
+    pub fn set_default_language(&mut self, language_id: &str) -> Result<&mut Self, Error> {
         self.default_language = Some(LanguageIdentifier::from_str(language_id)?);
         Ok(self)
     }
 
-    pub fn with_base_dir(mut self, base_dir: impl AsRef<Path>) -> Self {
+    pub fn set_resources_dir(&mut self, base_dir: impl AsRef<Path>) -> &mut Self {
         self.base_dir = Some(base_dir.as_ref().to_path_buf());
+        self
+    }
+
+    pub fn set_function_call_generator(&mut self, fn_call_gen: impl FunctionCallGenerator + 'static) -> &mut Self {
+        self.fn_call_generator = Rc::new(fn_call_gen);
         self
     }
 
@@ -69,16 +97,12 @@ impl MessageBundleBuilder {
             .unwrap()
     }
 
-    pub fn with_function_call_generator(mut self, fn_call_gen: impl FunctionCallGenerator + 'static) -> Self {
-        self.fn_call_generator = Rc::new(fn_call_gen);
-        self
-    }
 
     pub fn add_resource(
-        mut self,
+        &mut self,
         lang_id: &str,
         path: impl AsRef<Path>,
-    ) -> Result<Self, crate::Error> {
+    ) -> Result<&mut Self, crate::Error> {
         let resource_path = if path.as_ref().is_absolute() {
             path.as_ref().to_path_buf()
         } else if let Some(base_dir) = self.base_dir.as_ref() {
@@ -435,8 +459,12 @@ impl MessageBundleBuilder {
         }
     }
 
-    pub fn build(&self) -> Result<TokenStream2, Error> {
-        self.validate()?.generate()
+    pub fn build(&self) -> Result<MessageBundle, Error> {
+        let generated_tokens =  self.validate()?.generate()?;
+        Ok(MessageBundle {
+            name: self.bundle_name.clone(),
+            code: generated_tokens,
+        })
     }
 }
 

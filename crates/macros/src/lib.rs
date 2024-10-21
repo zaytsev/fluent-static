@@ -22,11 +22,15 @@ macro_rules! syntax_err {
 pub fn message_bundle(args: TokenStream, input: TokenStream) -> TokenStream {
     let item_struct = parse_macro_input!(input as ItemStruct);
     let name = item_struct.ident.to_string();
-    let attrs = parse_macro_input!(args as MessageBundle);
-    match attrs.builder.set_name(&name).build() {
+    let MessageBundleAttr {
+        mut builder,
+        includes,
+    } = parse_macro_input!(args as MessageBundleAttr);
+    builder.set_bundle_name(&name);
+    match builder.build() {
         Ok(result) => {
-            let includes: Vec<TokenStream2> = attrs
-                .includes
+            let tokens = result.tokens();
+            let includes: Vec<TokenStream2> = includes
                 .iter()
                 .map(|path| {
                     quote! {
@@ -39,7 +43,7 @@ pub fn message_bundle(args: TokenStream, input: TokenStream) -> TokenStream {
                 .collect();
             TokenStream::from(quote! {
                 #(#includes)*
-                #result
+                #tokens
             })
         }
         Err(e) => syntax_err!(item_struct.span(), "Error generating message bundle: {}", e)
@@ -53,7 +57,7 @@ fn get_project_dir() -> Option<OsString> {
         .or_else(|| env::var_os("CARGO_MANIFEST_DIR"))
 }
 
-struct MessageBundle {
+struct MessageBundleAttr {
     builder: MessageBundleBuilder,
     includes: Vec<String>,
 }
@@ -101,7 +105,7 @@ impl Parse for FunctionMapping {
     }
 }
 
-impl Parse for MessageBundle {
+impl Parse for MessageBundleAttr {
     fn parse(input: syn::parse::ParseStream) -> SyntaxResult<Self> {
         let base_dir = get_project_dir()
             .ok_or_else(|| syntax_err!(input.span(), "Unable to get project directory"))?;
@@ -155,37 +159,40 @@ impl Parse for MessageBundle {
                 "No default/fallback language is set. Missing 'default_language' attribute"
             ))
         } else {
-            let mut builder = MessageBundleBuilder::default().with_base_dir(base_dir);
+            let mut builder = MessageBundleBuilder::default();
             let mut includes = Vec::new();
 
-            builder = builder
-                .with_default_language(&lang_def.unwrap().value())
+            builder
+                .set_resources_dir(base_dir)
+                .set_default_language(&lang_def.unwrap().value())
                 .map_err(|e| syntax_err!(input.span(), "Error parsing default language: {}", e))?;
 
             if let Some(formatter_fn) = formatter {
-                builder = builder.set_formatter(&formatter_fn.value()).map_err(|e| {
-                    syntax_err!(
-                        formatter_fn.span(),
-                        "Error parsing formatter definition: {}",
-                        e
-                    )
-                })?;
+                builder
+                    .set_message_formatter_fn(&formatter_fn.value())
+                    .map_err(|e| {
+                        syntax_err!(
+                            formatter_fn.span(),
+                            "Error parsing formatter definition: {}",
+                            e
+                        )
+                    })?;
             }
 
             if !function_mappings.is_empty() {
-                builder = builder.with_function_call_generator(BundleFunctionCallGenerator::new(
+                builder.set_function_call_generator(BundleFunctionCallGenerator::new(
                     function_mappings,
                 ));
             }
 
             for resource in fluent_resources {
-                builder = builder
+                builder
                     .add_resource(&resource.language, &resource.path)
                     .map_err(|e| syntax_err!(resource.span, "Error processing resource: {}", e))?;
                 includes.push(resource.path);
             }
 
-            Ok(MessageBundle { builder, includes })
+            Ok(MessageBundleAttr { builder, includes })
         }
     }
 }
