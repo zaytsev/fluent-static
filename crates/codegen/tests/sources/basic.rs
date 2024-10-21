@@ -8,5 +8,5 @@ fn main() {
     let bundle = fluent::Basic::get("en").unwrap();
 
     assert_eq!("hello", bundle.hello());
-    assert_eq!("hello foo", bundle.hello_name("foo"));
+    assert_eq!("hello \u{2068}foo\u{2069}", bundle.hello_name("foo"));
 }

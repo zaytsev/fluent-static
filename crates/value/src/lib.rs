@@ -32,6 +32,20 @@ impl<'a> Value<'a> {
             format: Some(number_format),
         }
     }
+
+    pub fn is_string(&self) -> bool {
+        match self {
+            Value::String(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_number(&self) -> bool {
+        match self {
+            Value::Number { .. } => true,
+            _ => false,
+        }
+    }
 }
 
 impl<'a> PartialEq for Value<'a> {

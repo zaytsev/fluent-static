@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use fluent_static_value::{number::format::GroupingStyle, Number, NumberFormat, Value};
+use fluent_static_value::{
+    number::format::{CurrencyDisplayStyle, GroupingStyle, UnitDisplayStyle},
+    Number, NumberFormat, Value,
+};
 
 pub fn number<'a, 'b>(
     positional_args: &'a [Value<'a>],
@@ -33,12 +36,24 @@ fn parse_number_format<'a>(
     let mut result = value_format.unwrap_or_default();
     for (key, value) in named_args {
         match *key {
-            "currencyDisplay" => {}
-            "unitDisplay" => {}
-            "useGrouping" => {
+            "currencyDisplay" if value.is_string() && result.style.is_currency() => {
                 if let Value::String(s) = value {
-                    result.use_grouping = GroupingStyle::from_str(s).ok().or(result.use_grouping);
-                };
+                    result.style.set_currency_display_style(
+                        CurrencyDisplayStyle::from_str(s).unwrap_or_default(),
+                    );
+                }
+            }
+            "unitDisplay" if value.is_string() && result.style.is_unit() => {
+                if let Value::String(s) = value {
+                    result
+                        .style
+                        .set_unit_display_style(UnitDisplayStyle::from_str(s).unwrap_or_default());
+                }
+            }
+            "useGrouping" if value.is_string() => {
+                if let Value::String(s) = value {
+                    result.use_grouping = GroupingStyle::from_str(s).unwrap_or_default();
+                }
             }
             "minimumIntegerDigits" => result.minimum_integer_digits = read_digits(value, 1, 21),
             "minimumFractionDigits" => result.minimum_fraction_digits = read_digits(value, 0, 100),

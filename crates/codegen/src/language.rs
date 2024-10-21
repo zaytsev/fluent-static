@@ -474,12 +474,7 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
             ExpressionContext::Inline => Ok(quote! {
                 {
                     #args
-                    match #fn_call {
-                        ::fluent_static::value::Value::String(s) => out.write_str(&s)?,
-                        ::fluent_static::value::Value::Number{ value, .. } => out.write_str(&value.as_string())?,
-                        ::fluent_static::value::Value::Empty => (),
-                        ::fluent_static::value::Value::Error => (),
-                    };
+                    self._write_(&#fn_call, out)?;
                 };
             }),
             ExpressionContext::Selector { plural_rules } => {
@@ -644,17 +639,8 @@ impl<S: ToString> Visitor<S> for LanguageBuilder {
         match self.current_expr_context() {
             ExpressionContext::Inline => {
                 let var_ident = self.append_var(id)?;
-                // TODO add formatter support
-                // TODO add unicode isolating marks support
-                // TODO add unicode escaping
-                // TODO apply NUMBER format
                 Ok(quote! {
-                    match &#var_ident {
-                        ::fluent_static::value::Value::String(s) => out.write_str(&s)?,
-                        ::fluent_static::value::Value::Number{ value, .. } => out.write_str(&value.as_string())?,
-                        ::fluent_static::value::Value::Empty => (),
-                        ::fluent_static::value::Value::Error => (),
-                    };
+                    self._write_(&#var_ident, out)?;
                 })
             }
             ExpressionContext::Selector { plural_rules } => {

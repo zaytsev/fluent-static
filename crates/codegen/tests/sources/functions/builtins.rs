@@ -5,7 +5,8 @@ mod fluent {
 use fluent_static::MessageBundle;
 
 fn main() {
-    let bundle = fluent::BuiltinFns::get("en").unwrap();
+    let mut bundle = fluent::BuiltinFns::get("en").unwrap();
+    bundle.set_use_isolating(false);
 
     assert_eq!("en 10", bundle.simple_number(10));
     assert_eq!("en 11", bundle.simple_number("11"));

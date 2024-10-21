@@ -383,6 +383,7 @@ dependencies = [
  "async-trait",
  "axum-core",
  "axum-extra",
+ "fluent-static-formatter",
  "fluent-static-function",
  "fluent-static-macros",
  "fluent-static-value",

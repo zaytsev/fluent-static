@@ -5,7 +5,8 @@ mod fluent {
 use fluent_static::MessageBundle;
 
 fn main() {
-    let bundle = fluent::BasicRefs::get("en").unwrap();
+    let mut bundle = fluent::BasicRefs::get("en").unwrap();
+    bundle.set_use_isolating(false);
 
     assert_eq!("hello", bundle.hello());
     assert_eq!("en: hello foo", bundle.hello_name("foo"));

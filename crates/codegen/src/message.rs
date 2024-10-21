@@ -17,6 +17,7 @@ pub struct MessageBundleBuilder {
     default_language: Option<LanguageIdentifier>,
     base_dir: Option<PathBuf>,
     fn_call_generator: Rc<dyn FunctionCallGenerator>,
+    formatter_fn_ident: TokenStream2,
     language_bundles: BTreeMap<LanguageIdentifier, LanguageBuilder>,
     language_idents: BTreeMap<LanguageIdentifier, Ident>,
     language_bundles_code: Vec<TokenStream2>,
@@ -29,6 +30,9 @@ impl MessageBundleBuilder {
             default_language: None,
             base_dir: None,
             fn_call_generator: Rc::new(FunctionRegistry::default()),
+            formatter_fn_ident: quote! {
+                ::fluent_static::formatter::format
+            },
             language_idents: BTreeMap::new(),
             language_bundles: BTreeMap::new(),
             language_bundles_code: Vec::new(),
@@ -37,6 +41,15 @@ impl MessageBundleBuilder {
 
     pub fn set_name(mut self, name: &str) -> Self {
         self.bundle_name = name.to_string();
+        self
+    }
+
+    pub fn set_formatter(mut self, formatter_fn_name: &str) -> Self {
+        let parts: Vec<&str> = formatter_fn_name.split("::").collect();
+        let idents: Vec<_> = parts.iter().map(|part| format_ident!("{}", part)).collect();
+
+        self.formatter_fn_ident = quote! { ::#(#idents)::* };
+
         self
     }
 
@@ -178,6 +191,7 @@ impl MessageBundleBuilder {
         let language_bundles_code = &self.language_bundles_code;
         let message_fns = self.generate_message_fns(&bundle_languages_enum);
         let default_language_literal = Literal::string(&self.default_language().to_string());
+        let formatter_fn_ident = &self.formatter_fn_ident;
 
         Ok(quote! {
             #bundle_languages_code
@@ -185,6 +199,8 @@ impl MessageBundleBuilder {
             #[derive(Debug, Clone)]
             pub struct #bundle_ident {
                 language: self::#bundle_languages_enum,
+                formatter: Option<::fluent_static::formatter::FormatterFn>,
+                use_isolating: bool,
             }
 
             impl ::fluent_static::LanguageAware for self::#bundle_ident {
@@ -195,7 +211,7 @@ impl MessageBundleBuilder {
 
             impl ::fluent_static::MessageBundle for self::#bundle_ident {
                 fn get(language_id: &str) -> Option<Self> {
-                    self::#bundle_languages_enum::get(language_id).map(|language| Self { language })
+                    self::#bundle_languages_enum::get(language_id).map(|language| Self { language, ..Default::default() })
                 }
 
                 fn default_language_id() -> &'static str {
@@ -211,12 +227,42 @@ impl MessageBundleBuilder {
                 fn default() -> Self {
                     Self {
                         language: self::#bundle_languages_enum::default(),
+                        formatter: None,
+                        use_isolating: true,
                     }
                 }
             }
 
             impl #bundle_ident {
+                fn _write_<W: ::std::fmt::Write>(&self, value: & ::fluent_static::value::Value, out: &mut W) -> ::std::fmt::Result {
+                    if self.use_isolating {
+                        out.write_char('\u{2068}')?;
+                    };
+                    if let Some(formatter) = self.formatter.as_ref() {
+                        (formatter)(::fluent_static::LanguageAware::language_id(self), value, out)?;
+                    } else {
+                        #formatter_fn_ident(::fluent_static::LanguageAware::language_id(self), value, out)?;
+                    }
+                    if self.use_isolating {
+                        out.write_char('\u{2069}')?;
+                    };
+                    Ok(())
+                }
+
+                pub fn set_use_isolating(&mut self, value: bool) {
+                    self.use_isolating = value;
+                }
+
+                pub fn set_value_formatter(&mut self, formatter_fn: Option<::fluent_static::formatter::FormatterFn>) {
+                    self.formatter = formatter_fn;
+                }
+            }
+
+            impl #bundle_ident {
                 #(#message_fns)*
+            }
+
+            impl #bundle_ident {
                 #(#language_bundles_code)*
             }
         })

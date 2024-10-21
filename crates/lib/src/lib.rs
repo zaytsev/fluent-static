@@ -10,6 +10,7 @@ pub use fluent_static_value as value;
 
 mod message;
 pub use message::Message;
+pub mod formatter;
 
 #[macro_export]
 macro_rules! include_source {

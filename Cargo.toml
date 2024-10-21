@@ -44,3 +44,4 @@ fluent-static-codegen = { path = "crates/codegen" }
 fluent-static-macros = { path = "crates/macros" }
 fluent-static-value = { path = "crates/value" }
 fluent-static-function = { path = "crates/function" }
+fluent-static-formatter = { path = "crates/formatter" }

@@ -5,7 +5,8 @@ mod fluent {
 use fluent_static::MessageBundle;
 
 fn main() {
-    let bundle = fluent::Prs::get("en").unwrap();
+    let mut bundle = fluent::Prs::get("en").unwrap();
+    bundle.set_use_isolating(false);
 
     assert_eq!(
         "Foo added a new photo to his stream.",
@@ -22,7 +23,8 @@ fn main() {
         bundle.shared_photos("Foobar", 666, "baz")
     );
 
-    let bundle = fluent::Prs::get("pl").unwrap();
+    let mut bundle = fluent::Prs::get("pl").unwrap();
+    bundle.set_use_isolating(false);
 
     // Male gender
     assert_eq!(

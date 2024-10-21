@@ -22,6 +22,63 @@ impl Default for NumberStyle {
     }
 }
 
+impl NumberStyle {
+    pub fn is_currency(&self) -> bool {
+        match self {
+            NumberStyle::Currency { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_unit(&self) -> bool {
+        match self {
+            NumberStyle::Unit { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_decimal(&self) -> bool {
+        match self {
+            NumberStyle::Decimal => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_percent(&self) -> bool {
+        match self {
+            NumberStyle::Percent => true,
+            _ => false,
+        }
+    }
+
+    pub fn set_currency_display_style(&mut self, new_style: CurrencyDisplayStyle) -> bool {
+        if let NumberStyle::Currency { style, .. } = self {
+            *style = new_style;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn set_currency_sign_mode(&mut self, new_sign: CurrencySignMode) -> bool {
+        if let NumberStyle::Currency { sign, .. } = self {
+            *sign = new_sign;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn set_unit_display_style(&mut self, new_style: UnitDisplayStyle) -> bool {
+        if let NumberStyle::Unit { style, .. } = self {
+            *style = new_style;
+            true
+        } else {
+            false
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("Invalid currency code: '{0}")]
 pub struct InvalidCurrencyCode(String);
@@ -251,6 +308,23 @@ pub enum GroupingStyle {
 impl Default for GroupingStyle {
     fn default() -> Self {
         Self::Auto
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Invalid unit display style: '{0}")]
+pub struct InvalidUnitDisplayStyleError(String);
+
+impl FromStr for UnitDisplayStyle {
+    type Err = InvalidUnitDisplayStyleError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "short" => Ok(UnitDisplayStyle::Short),
+            "narrow" => Ok(UnitDisplayStyle::Narrow),
+            "long" => Ok(UnitDisplayStyle::Long),
+            _ => Err(InvalidUnitDisplayStyleError(s.to_string())),
+        }
     }
 }
 

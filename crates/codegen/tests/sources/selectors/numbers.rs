@@ -5,7 +5,8 @@ mod fluent {
 use fluent_static::MessageBundle;
 
 fn main() {
-    let bundle = fluent::Numbers::get("en").unwrap();
+    let mut bundle = fluent::Numbers::get("en").unwrap();
+    bundle.set_use_isolating(false);
 
     assert_eq!("minus two", bundle.test_numbers(-2));
     assert_eq!("zero", bundle.test_numbers(0i32));

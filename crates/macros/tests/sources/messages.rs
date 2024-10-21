@@ -30,7 +30,9 @@ impl Messages {
 }
 
 fn main() {
-    let messages = Messages::default();
+    let mut messages = Messages::default();
+    messages.set_use_isolating(false);
+
     assert_eq!("en foo", messages.test_param("foo"));
     assert_eq!("en oof", messages.test_fn("foo"));
     assert_eq!("en 42", messages.number_fn(42));

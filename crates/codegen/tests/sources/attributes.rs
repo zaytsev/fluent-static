@@ -5,7 +5,8 @@ mod fluent {
 use fluent_static::MessageBundle;
 
 fn main() {
-    let bundle = fluent::Attributes::get("it").unwrap();
+    let mut bundle = fluent::Attributes::get("it").unwrap();
+    bundle.set_use_isolating(false);
 
     assert_eq!("ciao", bundle.hello());
     assert_eq!("ciao with attributes", bundle.hello_attr());

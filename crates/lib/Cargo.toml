@@ -33,12 +33,15 @@ thiserror = { workspace = true }
 fluent-static-macros = { workspace = true }
 fluent-static-value = { workspace = true }
 fluent-static-function = { workspace = true }
+fluent-static-formatter = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 
 [features]
 default = []
+
+icu = ["dep:fluent-static-formatter"]
 
 axum = ["dep:axum-core", "dep:async-trait", "dep:http", "dep:axum-extra"]
 maud = ["dep:maud"]
