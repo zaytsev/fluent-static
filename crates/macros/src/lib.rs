@@ -109,6 +109,7 @@ impl Parse for MessageBundle {
         let mut fluent_resources: Vec<FluentResource> = Vec::new();
         let mut function_mappings: Vec<FunctionMapping> = Vec::new();
         let mut lang_def: Option<LitStr> = None;
+        let mut formatter: Option<LitStr> = None;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -131,6 +132,9 @@ impl Parse for MessageBundle {
                     let fn_mappings: Punctuated<FunctionMapping, Comma> =
                         content.parse_terminated(FunctionMapping::parse)?;
                     function_mappings.extend(fn_mappings);
+                }
+                "formatter" => {
+                    formatter = Some(input.parse()?);
                 }
                 attr => return Err(syntax_err!(ident.span(), "Unexpected attribute {attr}")),
             }
@@ -157,6 +161,16 @@ impl Parse for MessageBundle {
             builder = builder
                 .with_default_language(&lang_def.unwrap().value())
                 .map_err(|e| syntax_err!(input.span(), "Error parsing default language: {}", e))?;
+
+            if let Some(formatter_fn) = formatter {
+                builder = builder.set_formatter(&formatter_fn.value()).map_err(|e| {
+                    syntax_err!(
+                        formatter_fn.span(),
+                        "Error parsing formatter definition: {}",
+                        e
+                    )
+                })?;
+            }
 
             if !function_mappings.is_empty() {
                 builder = builder.with_function_call_generator(BundleFunctionCallGenerator::new(

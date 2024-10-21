@@ -7,5 +7,6 @@ fn test_derive_fluent_bundle() {
 
     let test_cases = trybuild::TestCases::new();
     test_cases.pass("tests/sources/messages.rs");
+    test_cases.pass("tests/sources/formatter.rs");
     test_cases.compile_fail("tests/sources/messages-missing-resource.rs");
 }

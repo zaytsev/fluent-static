@@ -17,7 +17,7 @@ pub struct MessageBundleBuilder {
     default_language: Option<LanguageIdentifier>,
     base_dir: Option<PathBuf>,
     fn_call_generator: Rc<dyn FunctionCallGenerator>,
-    formatter_fn_ident: TokenStream2,
+    formatter_fn: TokenStream2,
     language_bundles: BTreeMap<LanguageIdentifier, LanguageBuilder>,
     language_idents: BTreeMap<LanguageIdentifier, Ident>,
     language_bundles_code: Vec<TokenStream2>,
@@ -30,7 +30,7 @@ impl MessageBundleBuilder {
             default_language: None,
             base_dir: None,
             fn_call_generator: Rc::new(FunctionRegistry::default()),
-            formatter_fn_ident: quote! {
+            formatter_fn: quote! {
                 ::fluent_static::formatter::format
             },
             language_idents: BTreeMap::new(),
@@ -44,13 +44,12 @@ impl MessageBundleBuilder {
         self
     }
 
-    pub fn set_formatter(mut self, formatter_fn_name: &str) -> Self {
-        let parts: Vec<&str> = formatter_fn_name.split("::").collect();
-        let idents: Vec<_> = parts.iter().map(|part| format_ident!("{}", part)).collect();
-
-        self.formatter_fn_ident = quote! { ::#(#idents)::* };
-
-        self
+    pub fn set_formatter(mut self, formatter_fn_name: &str) -> Result<Self, Error> {
+        let expr: syn::Expr = syn::parse_str(formatter_fn_name)?;
+        self.formatter_fn = quote! {
+            #expr
+        };
+        Ok(self)
     }
 
     pub fn with_default_language(mut self, language_id: &str) -> Result<Self, Error> {
@@ -191,7 +190,7 @@ impl MessageBundleBuilder {
         let language_bundles_code = &self.language_bundles_code;
         let message_fns = self.generate_message_fns(&bundle_languages_enum);
         let default_language_literal = Literal::string(&self.default_language().to_string());
-        let formatter_fn_ident = &self.formatter_fn_ident;
+        let formatter_fn_ident = &self.formatter_fn;
 
         Ok(quote! {
             #bundle_languages_code
