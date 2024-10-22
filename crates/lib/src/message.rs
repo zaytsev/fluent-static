@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Display, ops::Deref};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Message(Cow<'static, str>);
+pub struct Message(pub(crate) Cow<'static, str>);
 
 impl Message {
     pub const fn new(value: Cow<'static, str>) -> Self {

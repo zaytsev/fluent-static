@@ -18,13 +18,13 @@ path = "src/lib.rs"
 [dependencies]
 unic-langid = { workspace = true }
 once_cell = { workspace = true }
-accept-language = { workspace = true }
 intl_pluralrules = { workspace = true }
 
 axum-core = { version = "0.4", optional = true }
 axum-extra = { version = "0.9", optional = true, features = ["cookie"] }
 async-trait = { version = "0.1", optional = true }
 http = { version = "1.1", optional = true }
+accept-language = { workspace = true, optional = true }
 
 maud = { version = "0.26", optional = true }
 
@@ -43,5 +43,11 @@ default = []
 
 icu = ["dep:fluent-static-formatter"]
 
-axum = ["dep:axum-core", "dep:async-trait", "dep:http", "dep:axum-extra"]
+axum = [
+  "dep:axum-core",
+  "dep:async-trait",
+  "dep:http",
+  "dep:axum-extra",
+  "dep:accept-language",
+]
 maud = ["dep:maud"]

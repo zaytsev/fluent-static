@@ -1,11 +1,13 @@
+#[cfg(not(feature = "icu"))]
 use crate::value::Number;
+#[cfg(not(feature = "icu"))]
 use crate::value::Value;
-
-pub type FormatterFn =
-    fn(&str, &fluent_static_value::Value, &mut dyn std::fmt::Write) -> std::fmt::Result;
 
 #[cfg(feature = "icu")]
 pub use fluent_static_formatter::format;
+
+pub type FormatterFn =
+    fn(&str, &fluent_static_value::Value, &mut dyn std::fmt::Write) -> std::fmt::Result;
 
 #[cfg(not(feature = "icu"))]
 pub fn format(
