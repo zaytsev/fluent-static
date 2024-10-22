@@ -359,6 +359,36 @@ pub struct NumberFormat {
     pub maximum_significant_digits: Option<usize>,
 }
 
+impl NumberFormat {
+    pub fn currency(code: CurrencyCode) -> Self {
+        Self {
+            style: NumberStyle::Currency {
+                code,
+                style: CurrencyDisplayStyle::default(),
+                sign: CurrencySignMode::default(),
+            },
+            ..Default::default()
+        }
+    }
+
+    pub fn unit(unit_id: UnitIdentifier) -> Self {
+        Self {
+            style: NumberStyle::Unit {
+                identifier: unit_id,
+                style: UnitDisplayStyle::default(),
+            },
+            ..Default::default()
+        }
+    }
+
+    pub fn percent() -> Self {
+        Self {
+            style: NumberStyle::Percent,
+            ..Default::default()
+        }
+    }
+}
+
 impl Default for NumberFormat {
     fn default() -> Self {
         Self {
