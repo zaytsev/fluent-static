@@ -13,6 +13,3 @@ maud = { version = "0.26", features = ["axum"] }
 fluent-static = { workspace = true, features = ["axum", "maud"] }
 
 anyhow = "1"
-
-[build-dependencies]
-fluent-static-codegen = { workspace = true }
