@@ -13,7 +13,7 @@ pre_package_bump_hooks = [
   "cargo test --all-features -- --test-threads 1",
   "cargo build --release",
   "cargo fmt --all",
-  "cargo set-version {{version}}",
+  "cargo set-version --package {{package}} {{version}}",
   "git add :/Cargo.lock",
 ]
 
