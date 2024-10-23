@@ -10,7 +10,7 @@ branch_whitelist = ["master", "main"]
 pre_bump_hooks = ["cargo check --workspace --release"]
 
 pre_package_bump_hooks = [
-  "cargo test -- --test-threads 1",
+  "cargo test --all-features -- --test-threads 1",
   "cargo build --release",
   "cargo fmt --all",
   "cargo set-version {{version}}",
@@ -22,16 +22,28 @@ post_bump_hooks = ["git push", "git push --tags"]
 post_package_bump_hooks = ["cargo package"]
 
 [packages.fluent-static]
-path = "fluent-static"
+path = "crates/lib"
 post_bump_hooks = ["cargo publish -p fluent-static"]
 
 [packages.fluent-static-codegen]
-path = "fluent-static-codegen"
+path = "crates/codegen"
 post_bump_hooks = ["cargo publish -p fluent-static-codegen"]
 
-[packages.fluent-static-bundle]
-path = "fluent-static-bundle"
-post_bump_hooks = ["cargo publish -p fluent-static-bundle"]
+[packages.fluent-static-macros]
+path = "crates/macros"
+post_bump_hooks = ["cargo publish -p fluent-static-macros"]
+
+[packages.fluent-static-value]
+path = "crates/value"
+post_bump_hooks = ["cargo publish -p fluent-static-value"]
+
+[packages.fluent-static-function]
+path = "crates/function"
+post_bump_hooks = ["cargo publish -p fluent-static-function"]
+
+[packages.fluent-static-formatter]
+path = "crates/formatter"
+post_bump_hooks = ["cargo publish -p fluent-static-formatter"]
 
 [commit_types]
 bump = { changelog_title = "Dependency updates" }
