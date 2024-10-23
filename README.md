@@ -3,99 +3,85 @@
 
 [![Latest version](https://img.shields.io/crates/v/fluent-static.svg)](https://crates.io/crates/fluent-static)
 
+fluent-static provides simple to use, yet efficient way to add localization to Rust projects with [Fluent Localization System](https://projectfluent.org/).
 
-Fluent-static is a Rust library designed to generate statically typed function bindings from Fluent localization bundles. This allows for compile-time validation of localization message usage, enhancing both reliability and maintainability of your internationalized code base.
+fluent-static is inspired by and partially based on awesome [Fluent-rs](https://github.com/projectfluent/fluent-rs) project.
 
 ## Features
 
-- **Compile-Time Validation:** Errors in localization message usage are caught at compile time, promoting reliability in multi-language projects.
-- **Automatic Function Generation:** Converts Fluent messages into Rust functions dynamically, eliminating the need for manual updates when localization files change.
-- **Easy Integration:** Works seamlessly within a standard Rust build environment with minimal configuration.
+- **Compile-time Validation:** no chance to to make a typo in l10n message name or use it with the wrong number of arguments
+- **Ergonomic API:** Just a method call `my_l10n.my_message()` to get l10n message
+- **Minimal Runtime Overhead:** Fluent messages are translated into Rust code, no loading and parsing l10n resources at runtime required
+- **Advanced Formatters:** Use (optionally) [Rust ICU bindings](https://github.com/google/rust_icu) to apply locale-specific formatting rules to currencies, measurement units values
 
-## Prerequisites
+## Usage
 
-Before you begin, ensure you have the latest stable version of Rust installed on your machine. This project uses features that require Rust 2021 edition or later.
-
-## Installation
-
-Add the following to your `Cargo.toml` file:
+### Cargo dependencies
 
 ```toml
 [dependencies]
 fluent-static = "*"
-
-[build-dependencies]
-fluent-static-codegen = "*"
 ```
 
-## Usage
+### Create Fluent resource
 
-To integrate `fluent-static` into your Rust project, follow these steps:
+```fluent
+# <project root>/l10n/messages.ftl
 
-### Step 1: Fluent Resources
+say-hello = Hello, { $name }
+    
+```
 
-Fluent resources should follow naming convention: `<resources_root>/<language_id>/<bundle_name>.ftl`, e.g. `l10n/en-US/messages.ftl`
-
-### Step 2: Configure Code Generator
-
-Create a `build.rs` file in your project root if it does not exist, and use the following template to generate Rust bindings for your Fluent resources:
+### Declare message bundle
 
 ```rust
-use fluent_static_codegen::{generate, FunctionPerMessageCodeGenerator};
-use std::{env, fs, path::Path};
+use fluent_static::message_bundle;
+
+#[message_bundle(
+    resources = [
+        ("l10n/messages.ftl", "en"),
+        // add more Fluent resources
+        // ("i10n/errors.ftl", "en")
+        // ("i10n/messages-fr.ftl", "fr")
+    ],
+    default_language = "en"
+)]
+pub struct Messages;
+```
+
+### Use the l10n messages
+
+```rust
+use fluent_static::MessageBundle;
 
 pub fn main() {
-    generate!("./l10n/", FunctionPerMessageCodeGenerator::new("en-US"), "l10n");
+    let lang = "en";
+    let messages = Messagess::get(lang).unwrap_or_default();
+
+    println!(messages.say_hello("World"));
 }
+    
 ```
 
-More details on code generation in `fluent-static-codegen` [README](fluent-static-codege/README.md)
+### Notes
 
-### Step 3: Accessing Generated Functions
+0. Language ID must be valid [Unicode Language Identifier](https://unicode.org/reports/tr35/tr35.html#unicode_language_id)
+1. Message names are converted to *snake_case*
+2. Function parameters are defined in the same exact order as they appear in a Fluent message defined in `default_language` bundle
+3. Message must be defined for each supported language
+4. Messages with arguments must have the same number and names of arguments (order doesn't matter) for each supported language
+5. Messages and terms must be defined before they could be referenced
 
-You can now use the generated functions in your main application or other modules:
+### A bit more advanced usage
 
-```rust
-fn main() {
-    println!("{}", l10n::messages::hello("en", "World!").unwrap());
-}
+* Use [codegen](/crates/codegen/README.md) in custom build scripts
+* More customizations to [message_bundle](/crates/macros/README.md) proc macro for custom functions and formmaters
 
-mod l10n {
-    fluent_static::include_source!("l10n");
-}
-```
+## Crate features
 
-## Integrations
-
-### Axum
-
-Enable `axum` feature and use `fluent_static::axum::RequestLanguage` extractor in any Axum handler to access l10n messages with minimal boilerplate code
-
-```toml
-fluent-static = { version = "*", features = [ "axum" ] }
-```
-
-```rust
-use axum::{routing::get, Router};
-use fluent_static::axum::RequestLanguage;
-use maud::{html, Markup};
-
-#[tokio::main]
-async fn main() {
-    let app = Router::new().route("/", get(hello_l10n));
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
-}
-
-async fn hello_l10n(RequestLanguage(msgs): RequestLanguage<l10n::messages::MessagesBundle>) -> String {
-    let name = "Guest";
-    format!("l10n: {}", msgs.hello(name).unwrap())
-}
-
-mod l10n {
-    fluent_static::include_source!("l10n");
-}
-```
+- **icu** enables different style of number formatting according to locale/language specific rules, requires native ICU libraries to be installed, see [example](/examples/simple/README.md)
+- **axum** provides configurable value extractor to retrieve l10n bundle according to cookie or `Accept-Language` header value, see [example](/examples/axum/)
+- **maud** adds support for Maud Rendere to l10n Message value, see [example](/examples/axum/)
 
 ## Contributing
 

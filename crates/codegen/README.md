@@ -49,23 +49,23 @@ pub fn main() {
 
     let bundle = MessageBundleBuilder::new("Messages")
         .set_default_language("en")
-        .unwrap()
+        .expect("Default language should be valid language identifier")
         .set_resources_dir(resources_base_dir())
         .add_resource("en", "messages-en.ftl")
-        .unwrap()
+        .expect("Resource file should be valid Fluent resource")
         .add_resource("it", "messages-it.ftl")
-        .unwrap()
+        .expect("Resource file should be valid Fluent resource")
         .build()
         .unwrap();
 
     bundle
         .write_to_file(output_dir().join("messages.rs"))
-        .expect("Error writing generated source");
+        .expect("Output directory should exist and be writeable to save generated code");
 }
   
 ```
 
-### Registering Fluent Functions
+### Registering Custom Fluent Functions
 
 TBD
 
