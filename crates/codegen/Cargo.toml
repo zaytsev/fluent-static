@@ -18,22 +18,17 @@ path = "src/lib.rs"
 
 [dependencies]
 fluent-syntax = { workspace = true }
-fluent-bundle = { workspace = true }
+unic-langid = { workspace = true }
+intl_pluralrules = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }
 proc-macro2 = { workspace = true }
 thiserror = { workspace = true }
 convert_case = { workspace = true }
-unic-langid = { workspace = true }
-once_cell = { workspace = true }
-accept-language = { workspace = true }
-intl_pluralrules = { workspace = true }
-
 fluent-static-value = { workspace = true }
 fluent-static-function = { workspace = true }
 
 [dev-dependencies]
-
 pretty_assertions = { workspace = true }
 trybuild = { workspace = true }
 fluent-static = { workspace = true }

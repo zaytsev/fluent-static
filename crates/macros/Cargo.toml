@@ -17,18 +17,9 @@ proc-macro = true
 path = "src/lib.rs"
 
 [dependencies]
-fluent-syntax = { workspace = true }
-fluent-bundle = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }
 proc-macro2 = { workspace = true }
-thiserror = { workspace = true }
-convert_case = { workspace = true }
-unic-langid = { workspace = true }
-once_cell = { workspace = true }
-accept-language = { workspace = true }
-wax = { workspace = true }
-
 fluent-static-codegen = { workspace = true }
 
 [dev-dependencies]
