@@ -1,34 +1,26 @@
-use fluent_static::fluent_bundle::FluentValue;
-
-fn main() {
-    println!("{}", l10n::messages::hello("en", "World!").unwrap());
-}
-
-pub fn fluent_value_format<M>(value: &FluentValue, _: &M) -> Option<String> {
-    if let FluentValue::String(s) = value {
-        Some(format!("<{}>", s))
-    } else {
-        None
-    }
-}
+use fluent_static::value::number::format::{CurrencyCode, NumberFormat};
+use fluent_static::value::Value;
 
 mod l10n {
-    fluent_static::include_source!("l10n.rs");
+    use fluent_static::message_bundle;
+    #[message_bundle(
+        resources = [
+            ("l10n/en-US/messages.ftl", "en-US"), 
+            ("l10n/fr-CH/messages.ftl", "fr-CH"), 
+        ],
+        default_language = "en-US")]
+    pub struct Messages;
 }
 
-#[cfg(test)]
-mod test {
-    #[test]
-    fn test_l10n() {
-        let actual = super::l10n::messages::hello("en", "foo").unwrap();
-        assert_eq!("Hello,\nmy\ndear\nfried\nfoo", actual);
-    }
+fn main() {
+    let messages = l10n::Messages::default();
+    println!("{}", messages.hello("world"));
 
-    #[test]
-    fn test_attr() {
-        let actual = super::l10n::messages::simple("en");
-        assert_eq!("Simple", actual);
-        let actual = super::l10n::messages::simple_attribute("en");
-        assert_eq!("Simple Attribute", actual);
-    }
+    println!(
+        "{}",
+        messages.total_amount(Value::formatted_number(
+            42.0,
+            NumberFormat::currency(CurrencyCode::USD)
+        ))
+    )
 }

@@ -7,5 +7,4 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
-fluent-static = { path = "../fluent-static" }
-fluent-static-codegen = { path = "../fluent-static-codegen" }
+fluent-static = { path = "../crates/lib" }

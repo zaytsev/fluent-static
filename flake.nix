@@ -44,9 +44,11 @@
             doCheck = false;
 
             nativeBuildInputs = with pkgs; [
+              pkg-config
             ];
 
             buildInputs = with pkgs; [
+              icu
             ];
 
             cargoLock = {
@@ -80,7 +82,16 @@
               cargo-expand
 
               cocogitto
+
+              pkg-config
+              icu
+              clang
+              llvmPackages.libclang.lib
             ];
+
+            shellHook = with pkgs; ''
+              export LIBCLANG_PATH="${llvmPackages.libclang.lib}/lib"
+            '';
           };
       }
     );

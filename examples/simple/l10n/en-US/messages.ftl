@@ -1,9 +1,6 @@
-hello=
-  Hello,
-  my
-  dear
-  fried
-  { $name }
+hello = Hello, { $name }
 
 simple = Simple
   .attribute = Simple Attribute
+
+total_amount = Total: { NUMBER($amount, currencyDisplay:"symbol") }

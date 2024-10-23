@@ -1,0 +1,20 @@
+[package]
+name = "fluent-static-value"
+version = "0.1.0"
+description = "Automatically generate Rust functions from Fluent message files for streamlined localization in Rust applications."
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+
+include = ["/src", "README.md"]
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+thiserror = { workspace = true }
+paste = { workspace = true }
