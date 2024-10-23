@@ -44,7 +44,7 @@ impl FunctionRegistry {
         let parts: Vec<&str> = path.split("::").collect();
         let idents: Vec<_> = parts.iter().map(|part| format_ident!("{}", part)).collect();
 
-        quote! { ::#(#idents)::* }
+        quote! { #(#idents)::* }
     }
 }
 

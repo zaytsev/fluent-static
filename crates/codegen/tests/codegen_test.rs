@@ -1,6 +1,7 @@
 use std::{env, fs, path::PathBuf};
 
-use fluent_static_codegen::MessageBundleBuilder;
+use fluent_static_codegen::{function::FunctionRegistry, MessageBundleBuilder};
+use fluent_static_function::FluentFunctionDescriptor;
 
 fn resources_base_dir() -> PathBuf {
     PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("'CARGO_MANIFEST_DIR' not set"))
@@ -132,6 +133,14 @@ fn test_references() {
     test_cases.pass("tests/sources/refs/basic.rs");
 }
 
+struct CustomFn(&'static str);
+
+impl FluentFunctionDescriptor for CustomFn {
+    fn type_name(&self) -> &'static str {
+        self.0
+    }
+}
+
 #[test]
 fn test_functions() {
     let bundle = MessageBundleBuilder::new("BuiltinFns")
@@ -149,6 +158,26 @@ fn test_functions() {
         .write_to_file(output_dir().join("builtin_fns.rs"))
         .expect("Error writing generated source");
 
+    let mut registry = FunctionRegistry::default();
+    registry.register("UPPERCASE", CustomFn("fluent_uppercase"));
+
+    let bundle = MessageBundleBuilder::new("CustomFns")
+        .set_default_language("en")
+        .unwrap()
+        .set_function_call_generator(registry)
+        .set_resources_dir(resources_base_dir())
+        .add_resource("en", "functions/custom-en.ftl")
+        .unwrap()
+        .add_resource("it", "functions/custom-it.ftl")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    bundle
+        .write_to_file(output_dir().join("custom_fns.rs"))
+        .expect("Error writing generated source");
+
     let test_cases = trybuild::TestCases::new();
     test_cases.pass("tests/sources/functions/builtins.rs");
+    test_cases.pass("tests/sources/functions/custom.rs");
 }
