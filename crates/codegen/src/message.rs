@@ -1,5 +1,8 @@
 use std::{
-    collections::{BTreeMap, BTreeSet}, path::{Path, PathBuf}, rc::Rc, str::FromStr
+    collections::{BTreeMap, BTreeSet},
+    path::{Path, PathBuf},
+    rc::Rc,
+    str::FromStr,
 };
 
 use convert_case::{Case, Casing};
@@ -9,7 +12,11 @@ use quote::{format_ident, quote};
 use unic_langid::LanguageIdentifier;
 
 use crate::{
-    ast::Visitor, function::{FunctionCallGenerator, FunctionRegistry}, language::LanguageBuilder, types::{FluentMessage, PublicFluentId}, Error
+    ast::Visitor,
+    function::{FunctionCallGenerator, FunctionRegistry},
+    language::LanguageBuilder,
+    types::{FluentMessage, PublicFluentId},
+    Error,
 };
 
 pub struct MessageBundle {
@@ -67,7 +74,10 @@ impl MessageBundleBuilder {
         self
     }
 
-    pub fn set_message_formatter_fn(&mut self, formatter_fn_name: &str) -> Result<&mut Self, Error> {
+    pub fn set_message_formatter_fn(
+        &mut self,
+        formatter_fn_name: &str,
+    ) -> Result<&mut Self, Error> {
         let expr: syn::Expr = syn::parse_str(formatter_fn_name)?;
         self.formatter_fn = quote! {
             #expr
@@ -85,7 +95,10 @@ impl MessageBundleBuilder {
         self
     }
 
-    pub fn set_function_call_generator(&mut self, fn_call_gen: impl FunctionCallGenerator + 'static) -> &mut Self {
+    pub fn set_function_call_generator(
+        &mut self,
+        fn_call_gen: impl FunctionCallGenerator + 'static,
+    ) -> &mut Self {
         self.fn_call_generator = Rc::new(fn_call_gen);
         self
     }
@@ -96,7 +109,6 @@ impl MessageBundleBuilder {
             .or_else(|| self.language_idents.first_key_value().map(|(k, _)| k))
             .unwrap()
     }
-
 
     pub fn add_resource(
         &mut self,
@@ -133,7 +145,9 @@ impl MessageBundleBuilder {
         let lang_bundle = self
             .language_bundles
             .entry(language_id)
-            .or_insert_with_key(|lang_id| LanguageBuilder::new(lang_id, self.fn_call_generator.clone()));
+            .or_insert_with_key(|lang_id| {
+                LanguageBuilder::new(lang_id, self.fn_call_generator.clone())
+            });
 
         self.language_bundles_code
             .push(lang_bundle.visit_resource(&ast)?);
@@ -162,10 +176,7 @@ impl MessageBundleBuilder {
                     .registered_message_fns
                     .iter()
                     .for_each(|(id, _)| {
-                        msg_fns
-                            .entry(id)
-                            .or_insert_with(BTreeSet::new)
-                            .insert(lang);
+                        msg_fns.entry(id).or_insert_with(BTreeSet::new).insert(lang);
                     });
                 msg_fns
             })
@@ -329,7 +340,7 @@ impl MessageBundleBuilder {
                 quote! {
                     Self::#ident => {
                         static RULES: ::fluent_static::once_cell::sync::Lazy<::fluent_static::intl_pluralrules::PluralRules> =
-                            ::fluent_static::once_cell::sync::Lazy::new(|| 
+                            ::fluent_static::once_cell::sync::Lazy::new(||
                                 ::fluent_static::intl_pluralrules::PluralRules::create(
                                     ::fluent_static::unic_langid::LanguageIdentifier::from_bytes(#lang_id.as_bytes()).unwrap(),
                                     ::fluent_static::intl_pluralrules::PluralRuleType::CARDINAL).unwrap());
@@ -412,7 +423,10 @@ impl MessageBundleBuilder {
         msg_fn_id: &PublicFluentId,
         msg: &FluentMessage,
     ) -> TokenStream2 {
-        let fn_ident = format_ident!("{}", msg.id().to_string().replace('.', "_").to_case(Case::Snake));
+        let fn_ident = format_ident!(
+            "{}",
+            msg.id().to_string().replace('.', "_").to_case(Case::Snake)
+        );
 
         let vars = msg.declared_vars();
         let fn_generics = if msg.has_vars() {
@@ -431,19 +445,18 @@ impl MessageBundleBuilder {
                     .get(msg_fn_id)
                     .map(|fn_def| (lang, fn_def))
             })
-            .map(
-                |(
-                    lang,
-                    lang_msg,
-                )| {
-                    let lang_fn_ident = lang_msg.fn_ident();
-                    let fn_vars: BTreeSet<Ident> = lang_msg.vars().into_iter().map(|var| var.var_ident).collect();
-                    let lang = self.language_idents.get(lang).expect("Unexpected language");
-                    quote! {
-                        self::#languages_enum::#lang => self.#lang_fn_ident(&mut out, #(#fn_vars),*)
-                    }
-                },
-            )
+            .map(|(lang, lang_msg)| {
+                let lang_fn_ident = lang_msg.fn_ident();
+                let fn_vars: BTreeSet<Ident> = lang_msg
+                    .vars()
+                    .into_iter()
+                    .map(|var| var.var_ident)
+                    .collect();
+                let lang = self.language_idents.get(lang).expect("Unexpected language");
+                quote! {
+                    self::#languages_enum::#lang => self.#lang_fn_ident(&mut out, #(#fn_vars),*)
+                }
+            })
             .collect();
 
         quote! {
@@ -460,7 +473,7 @@ impl MessageBundleBuilder {
     }
 
     pub fn build(&self) -> Result<MessageBundle, Error> {
-        let generated_tokens =  self.validate()?.generate()?;
+        let generated_tokens = self.validate()?.generate()?;
         Ok(MessageBundle {
             name: self.bundle_name.clone(),
             code: generated_tokens,
