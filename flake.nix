@@ -61,7 +61,9 @@
         };
         defaultPackage = package;
 
-        devShell =
+        devShell = let
+          llvmPkgs = pkgs.llvmPackages_18;
+        in
           pkgs.mkShell
           {
             buildInputs = with pkgs; [
@@ -84,13 +86,13 @@
               cocogitto
 
               pkg-config
-              icu
+              icu74
               clang
-              llvmPackages.libclang.lib
+              llvmPkgs.libclang.lib
             ];
 
-            shellHook = with pkgs; ''
-              export LIBCLANG_PATH="${llvmPackages.libclang.lib}/lib"
+            shellHook = ''
+              export LIBCLANG_PATH="${llvmPkgs.libclang.lib}/lib"
             '';
           };
       }
