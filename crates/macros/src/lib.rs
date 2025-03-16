@@ -124,7 +124,7 @@ impl Parse for MessageBundleAttr {
                     let resource_list;
                     syn::bracketed!(resource_list in input);
                     let resources: Punctuated<FluentResource, Comma> =
-                        resource_list.parse_terminated(FluentResource::parse)?;
+                        resource_list.parse_terminated(FluentResource::parse, Token![,])?;
                     fluent_resources.extend(resources);
                 }
                 "default_language" => {
@@ -134,7 +134,7 @@ impl Parse for MessageBundleAttr {
                     let content;
                     syn::parenthesized!(content in input);
                     let fn_mappings: Punctuated<FunctionMapping, Comma> =
-                        content.parse_terminated(FunctionMapping::parse)?;
+                        content.parse_terminated(FunctionMapping::parse, Token![,])?;
                     function_mappings.extend(fn_mappings);
                 }
                 "formatter" => {
