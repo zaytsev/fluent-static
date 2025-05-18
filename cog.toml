@@ -1,11 +1,11 @@
 tag_prefix = "v"
 
 monorepo_version_separator = "-"
-generate_mono_repository_global_tag = false
+generate_mono_repository_global_tag = true
 
 ignore_merge_commits = true
 
-branch_whitelist = ["master", "main"]
+branch_whitelist = ["main"]
 
 pre_bump_hooks = ["cargo check --workspace --release"]
 
@@ -24,29 +24,42 @@ post_package_bump_hooks = ["cargo package"]
 [packages.fluent-static]
 path = "crates/lib"
 post_bump_hooks = ["cargo publish -p fluent-static"]
+public_api = true
 
 [packages.fluent-static-codegen]
 path = "crates/codegen"
 post_bump_hooks = ["cargo publish -p fluent-static-codegen"]
+public_api = true
+bump_order = 4
 
 [packages.fluent-static-macros]
 path = "crates/macros"
 post_bump_hooks = ["cargo publish -p fluent-static-macros"]
+public_api = true
+bump_order = 5
 
 [packages.fluent-static-value]
 path = "crates/value"
 post_bump_hooks = ["cargo publish -p fluent-static-value"]
+bump_order = 1
+public_api = true
 
 [packages.fluent-static-function]
 path = "crates/function"
 post_bump_hooks = ["cargo publish -p fluent-static-function"]
+bump_order = 2
+public_api = true
 
 [packages.fluent-static-formatter]
 path = "crates/formatter"
 post_bump_hooks = ["cargo publish -p fluent-static-formatter"]
+bump_order = 3
 
 [commit_types]
 bump = { changelog_title = "Dependency updates" }
+chore = { changelog_title = "", omit_from_changelog = true }
+ci = { changelog_title = "", omit_from_changelog = true }
+build = { changelog_title = "", omit_from_changelog = true }
 
 [changelog]
 path = "CHANGELOG.md"
