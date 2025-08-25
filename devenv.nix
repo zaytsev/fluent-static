@@ -4,6 +4,7 @@
     enable = true;
     # Use stable channel
     channel = "stable";
+    # channel = "nightly";
   };
 
   # Additional packages from the original flake
