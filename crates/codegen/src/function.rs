@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use fluent_static_function::FluentFunctionDescriptor;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::Ident;
+use syn::{parse_str, Ident, Path, PathArguments};
 
 pub trait FunctionCallGenerator {
     fn generate(
@@ -41,10 +41,12 @@ impl FunctionRegistry {
             path.to_string()
         };
 
-        let parts: Vec<&str> = path.split("::").collect();
-        let idents: Vec<_> = parts.iter().map(|part| format_ident!("{}", part)).collect();
+        let mut path: Path = parse_str(&path).expect("vaild function type name");
+        if let Some(name) = path.segments.last_mut() {
+            name.arguments = PathArguments::None
+        }
 
-        quote! { #(#idents)::* }
+        quote! { #path }
     }
 }
 
