@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## fluent-static-v0.5.1 - 2025-08-25
+#### Bug Fixes
+- axum support compilation error - (cc19d7e) - zaytsev
+
+- - -
+
 ## fluent-static-v0.5.0 - 2024-10-23
 #### Features
 - Add proc macro to generate fluent message bundles - (ef68c00) - zaytsev
