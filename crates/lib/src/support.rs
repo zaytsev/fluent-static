@@ -11,10 +11,9 @@ pub mod maud {
 
 #[cfg(feature = "axum")]
 pub mod axum {
-    use std::sync::Arc;
+    use std::{future::Future, sync::Arc};
 
     use accept_language;
-    use async_trait::async_trait;
     use axum_core::extract::FromRequestParts;
     use axum_extra::extract::CookieJar;
     use http::{header::ACCEPT_LANGUAGE, request::Parts, StatusCode};
@@ -82,56 +81,60 @@ pub mod axum {
         }
     }
 
-    #[async_trait]
     impl<T: MessageBundle, S> FromRequestParts<S> for RequestLanguage<T>
     where
         S: Send + Sync,
     {
         type Rejection = (StatusCode, &'static str);
 
-        async fn from_request_parts(
+        fn from_request_parts(
             parts: &mut Parts,
             _state: &S,
-        ) -> Result<Self, Self::Rejection> {
-            let cfg = parts
-                .extensions
-                .get::<RequestLanguageConfig>()
-                .map(|cfg| cfg.clone())
-                .unwrap_or_default();
+        ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+            async move {
+                let cfg = parts
+                    .extensions
+                    .get::<RequestLanguageConfig>()
+                    .map(|cfg| cfg.clone())
+                    .unwrap_or_default();
 
-            if let Some(cookie_name) = cfg.language_cookie_name().as_ref() {
-                if let Some(bundle) = CookieJar::from_request_parts(parts, _state)
-                    .await
-                    .ok()
-                    .and_then(|jar| {
-                        jar.get(cookie_name)
-                            .map(|cookie| cookie.value_trimmed())
-                            .and_then(T::get)
-                    })
-                {
-                    return Ok(Self(bundle));
+                if let Some(cookie_name) = cfg.language_cookie_name().as_ref() {
+                    if let Some(bundle) = CookieJar::from_request_parts(parts, _state)
+                        .await
+                        .ok()
+                        .and_then(|jar| {
+                            jar.get(cookie_name)
+                                .map(|cookie| cookie.value_trimmed())
+                                .and_then(T::get)
+                        })
+                    {
+                        return Ok(Self(bundle));
+                    };
                 };
-            };
 
-            let bundle = if !cfg.ignore_language_header() {
-                parts
-                    .headers
-                    .get(ACCEPT_LANGUAGE)
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|value| {
-                        accept_language::intersection_ordered(value, T::supported_language_ids())
+                let bundle = if !cfg.ignore_language_header() {
+                    parts
+                        .headers
+                        .get(ACCEPT_LANGUAGE)
+                        .and_then(|v| v.to_str().ok())
+                        .and_then(|value| {
+                            accept_language::intersection_ordered(
+                                value,
+                                T::supported_language_ids(),
+                            )
                             .first()
                             .and_then(|lang| T::get(lang))
-                    })
-            } else {
-                None
-            };
+                        })
+                } else {
+                    None
+                };
 
-            Ok(Self(
-                bundle
-                    .or_else(|| cfg.fallback_language_id().and_then(T::get))
-                    .unwrap_or_default(),
-            ))
+                Ok(Self(
+                    bundle
+                        .or_else(|| cfg.fallback_language_id().and_then(T::get))
+                        .unwrap_or_default(),
+                ))
+            }
         }
     }
 
