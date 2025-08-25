@@ -2,6 +2,65 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v0.4.0 - 2025-08-25
+### Package updates
+- fluent-static-codegen bumped to fluent-static-codegen-v0.6.1
+### Global changes
+#### Documentation
+- Fix CHANGELOG info - (15a264e) - zaytsev
+- Add a bit more details to READMEs - (90169aa) - zaytsev
+#### Features
+- **(codegen)** Add macro to simplify codegen - (eb6000b) - *zaytsev*
+
+- - -
+
+## fluent-static-codegen-v0.4.0 - 2025-08-25
+### Package updates
+- fluent-static-codegen bumped to fluent-static-codegen-v0.6.1
+### Global changes
+#### Features
+- Add macro to include generated source code - (d45d6d3) - zaytsev
+
+- - -
+
+## fluent-static-v0.4.0 - 2025-08-25
+### Package updates
+- fluent-static-codegen bumped to fluent-static-codegen-v0.6.1
+### Global changes
+#### Bug Fixes
+- Use fully qualified dependency paths in generate! macro - (7b5ec46) - zaytsev
+#### Documentation
+- Update README to demonstrate generate! macro usage - (122a554) - zaytsev
+
+- - -
+
+## fluent-static-codegen-v0.4.1 - 2025-08-25
+### Package updates
+- fluent-static-codegen bumped to fluent-static-codegen-v0.6.1
+### Global changes
+#### Features
+- Allow compile-time FluentBundle configuration - (b7aefb2) - zaytsev
+
+- - -
+
+## fluent-static-codegen-v0.5.0 - 2025-08-25
+### Package updates
+- fluent-static-codegen bumped to fluent-static-codegen-v0.6.1
+### Global changes
+#### Documentation
+- Add crates.io badges - (5eb0b03) - zaytsev
+#### Features
+- Add proc macro to generate fluent message bundles - (ef68c00) - zaytsev
+
+- - -
+
+## fluent-static-value-v0.1.0 - 2025-08-25
+### Package updates
+- fluent-static-codegen bumped to fluent-static-codegen-v0.6.1
+### Global changes
+
+- - -
+
 ## fluent-static-codegen-v0.5.0 - 2024-08-19
 #### Features
 - Allow compile-time FluentBundle configuration - (b7aefb2) - zaytsev

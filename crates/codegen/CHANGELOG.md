@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## fluent-static-codegen-v0.6.1 - 2025-08-25
+#### Bug Fixes
+- fluent_bundle proc macro panics on rust nightly 1.91 - (adc8237) - zaytsev
+
+- - -
+
 ## fluent-static-codegen-v0.6.0 - 2024-10-23
 #### Features
 - Add proc macro to generate fluent message bundles - (ef68c00) - zaytsev
