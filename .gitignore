@@ -11,3 +11,5 @@ devenv.local.nix
 
 # pre-commit
 .pre-commit-config.yaml
+.reasonix/
+devenv.local.yaml

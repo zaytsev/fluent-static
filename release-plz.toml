@@ -1,0 +1,67 @@
+[workspace]
+dependencies_update = true
+git_release_enable = false
+git_tag_enable = true
+git_tag_name = "{{ package }}-v{{ version }}"
+repo_url = "https://github.com/zaytsev/fluent-static"
+semver_check = false
+
+[[package]]
+name = "fluent-static-value"
+changelog_path = "crates/value/CHANGELOG.md"
+
+[[package]]
+name = "fluent-static-function"
+changelog_path = "crates/function/CHANGELOG.md"
+
+[[package]]
+name = "fluent-static-formatter"
+changelog_path = "crates/formatter/CHANGELOG.md"
+
+[[package]]
+name = "fluent-static-codegen"
+changelog_path = "crates/codegen/CHANGELOG.md"
+
+[[package]]
+name = "fluent-static-macros"
+changelog_path = "crates/macros/CHANGELOG.md"
+
+[[package]]
+name = "fluent-static"
+changelog_path = "crates/lib/CHANGELOG.md"
+git_release_enable = true
+
+[changelog]
+header = ""
+
+body = """
+- - -
+## {{ package }}-v{{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}
+{% for group, commits in commits | group_by(attribute="group") %}
+#### {{ group }}
+{% for commit in commits %}
+{%- set real = commit.id | replace(from="0", to="") -%}
+{%- if commit.scope -%}
+- **({{ commit.scope }})** {{ commit.message }}{%- if real != "" %} - ({{ commit.id | truncate(length=7, end="") }}){% endif %}
+{%- else -%}
+- {{ commit.message }}{%- if real != "" %} - ({{ commit.id | truncate(length=7, end="") }}){% endif %}
+{%- endif -%}
+{% endfor %}
+{% endfor %}
+"""
+
+commit_parsers = [
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^docs", group = "Documentation" },
+    { message = "^style", group = "Style" },
+    { message = "^refactor", group = "Refactoring" },
+    { message = "^perf", group = "Performance" },
+    { message = "^test", group = "Tests" },
+    { message = "^revert", group = "Revert" },
+    { message = "^bump", group = "Dependency updates" },
+    { message = "^chore", skip = true },
+    { message = "^ci", skip = true },
+    { message = "^build", skip = true },
+    { message = "^.*", group = "Other" },
+]

@@ -4,7 +4,6 @@
     enable = true;
     # Use stable channel
     channel = "stable";
-    # channel = "nightly";
   };
 
   # Additional packages from the original flake
@@ -22,6 +21,7 @@
     pkg-config
     icu74
     clang
+    release-plz
   ];
 
   # Environment variables
