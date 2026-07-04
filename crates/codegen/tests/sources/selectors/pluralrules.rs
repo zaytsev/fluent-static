@@ -5,7 +5,7 @@ mod fluent {
 use fluent_static::MessageBundle;
 
 fn main() {
-    let mut bundle = fluent::Prs::get("en").unwrap();
+    let mut bundle = fluent::Prs::get("en-US").unwrap();
     bundle.set_use_isolating(false);
 
     assert_eq!(
@@ -23,7 +23,7 @@ fn main() {
         bundle.shared_photos("Foobar", 666, "baz")
     );
 
-    let mut bundle = fluent::Prs::get("pl").unwrap();
+    let mut bundle = fluent::Prs::get("pl-PL").unwrap();
     bundle.set_use_isolating(false);
 
     // Male gender

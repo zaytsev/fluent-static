@@ -92,12 +92,12 @@ fn test_selector_messages() {
         .expect("Error writing generated source");
 
     let plural_rules = MessageBundleBuilder::new("Prs")
-        .set_default_language("en")
+        .set_default_language("en-US")
         .unwrap()
         .set_resources_dir(resources_base_dir())
-        .add_resource("en", "selectors/pluralrules-en.ftl")
+        .add_resource("en-US", "selectors/pluralrules-en.ftl")
         .unwrap()
-        .add_resource("pl", "selectors/pluralrules-pl.ftl")
+        .add_resource("pl-PL", "selectors/pluralrules-pl.ftl")
         .unwrap()
         .build()
         .unwrap();

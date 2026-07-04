@@ -340,10 +340,29 @@ impl MessageBundleBuilder {
                 quote! {
                     Self::#ident => {
                         static RULES: ::fluent_static::once_cell::sync::Lazy<::fluent_static::intl_pluralrules::PluralRules> =
-                            ::fluent_static::once_cell::sync::Lazy::new(||
-                                ::fluent_static::intl_pluralrules::PluralRules::create(
-                                    ::fluent_static::unic_langid::LanguageIdentifier::from_bytes(#lang_id.as_bytes()).unwrap(),
-                                    ::fluent_static::intl_pluralrules::PluralRuleType::CARDINAL).unwrap());
+                            ::fluent_static::once_cell::sync::Lazy::new(|| {
+                                let li = ::fluent_static::unic_langid::LanguageIdentifier::from_bytes(#lang_id.as_bytes()).unwrap();
+                                let rule_type = ::fluent_static::intl_pluralrules::PluralRuleType::CARDINAL;
+                                if let Ok(pl) = ::fluent_static::intl_pluralrules::PluralRules::create(li.clone(), rule_type) {
+                                    pl
+                                } else if let Ok(pl) = ::fluent_static::intl_pluralrules::PluralRules::create(
+                                    ::fluent_static::unic_langid::LanguageIdentifier::from_raw_parts_unchecked(
+                                        li.language, li.script, li.region, ::std::option::Option::None), rule_type) {
+                                    pl
+                                } else if let Ok(pl) = ::fluent_static::intl_pluralrules::PluralRules::create(
+                                    ::fluent_static::unic_langid::LanguageIdentifier::from_raw_parts_unchecked(li.language, li.script,
+                                        ::std::option::Option::None, ::std::option::Option::None), rule_type) {
+                                    pl
+                                } else if let Ok(pl) = ::fluent_static::intl_pluralrules::PluralRules::create(
+                                    ::fluent_static::unic_langid::LanguageIdentifier::from_raw_parts_unchecked(
+                                        li.language, ::std::option::Option::None, li.region, ::std::option::Option::None), rule_type) {
+                                    pl
+                                } else {
+                                    ::fluent_static::intl_pluralrules::PluralRules::create(
+                                    ::fluent_static::unic_langid::LanguageIdentifier::from_raw_parts_unchecked(
+                                        li.language, ::std::option::Option::None, ::std::option::Option::None, ::std::option::Option::None), rule_type).unwrap()
+                                }
+                            });
                         &RULES
                     }
                 }
