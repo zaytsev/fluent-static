@@ -218,7 +218,7 @@ dependencies = [
 
 [[package]]
 name = "fluent-static"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "accept-language",
  "axum-core",
@@ -238,7 +238,7 @@ dependencies = [
 
 [[package]]
 name = "fluent-static-codegen"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "convert_case",
  "fluent-static",
@@ -257,7 +257,7 @@ dependencies = [
 
 [[package]]
 name = "fluent-static-formatter"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "fluent-static-value",
  "rust_icu_unumberformatter",
@@ -265,7 +265,7 @@ dependencies = [
 
 [[package]]
 name = "fluent-static-function"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "fluent-static-value",
  "thiserror 2.0.18",
@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "fluent-static-macros"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "fluent-static",
  "fluent-static-codegen",
@@ -285,7 +285,7 @@ dependencies = [
 
 [[package]]
 name = "fluent-static-value"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "paste",
  "thiserror 2.0.18",

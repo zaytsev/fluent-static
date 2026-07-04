@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+- - -
+## fluent-static-macros-v0.1.2 - 2026-07-04
+
+#### Bug Fixes
+- **(macros)** disable compile-time warning caused by trybuild cfg - (061b2fe)
+
 ## fluent-static-macros-v0.1.1 - 2025-08-25
 
 - - -
