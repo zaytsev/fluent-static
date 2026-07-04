@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use fluent_static_function::FluentFunctionDescriptor;
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
+use quote::quote;
 use syn::{parse_str, Ident, Path, PathArguments};
 
 pub trait FunctionCallGenerator {
