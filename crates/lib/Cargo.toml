@@ -22,8 +22,8 @@ unic-langid = { workspace = true }
 
 accept-language = { workspace = true, optional = true }
 axum-core = { version = "0.5", optional = true }
-axum-extra = { version = "0.10", optional = true, features = ["cookie"] }
-http = { version = "1.3", optional = true }
+axum-extra = { version = "0.12", optional = true, features = ["cookie"] }
+http = { version = "1.4", optional = true }
 
 maud = { version = "0.27", optional = true }
 

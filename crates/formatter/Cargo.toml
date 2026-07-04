@@ -17,4 +17,4 @@ path = "src/lib.rs"
 
 [dependencies]
 fluent-static-value = { workspace = true }
-rust_icu_unumberformatter = "5.0.0"
+rust_icu_unumberformatter = "5.6.0"
