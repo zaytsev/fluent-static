@@ -27,6 +27,7 @@ resolver = "Cargo"
 [monorepo.packages.fluent-static]
 path = "crates/lib"
 post_bump_hooks = ["cargo publish -p fluent-static"]
+bump_order = 6
 public_api = true
 
 [monorepo.packages.fluent-static-codegen]
