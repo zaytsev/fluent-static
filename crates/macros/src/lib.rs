@@ -42,7 +42,11 @@ pub fn message_bundle(args: TokenStream, input: TokenStream) -> TokenStream {
                 })
                 .collect();
             TokenStream::from(quote! {
-                #(#includes)*
+                #[doc(hidden)]
+                mod __resource_tracking {
+                    #![allow(unexpected_cfgs)]
+                    #(#includes)*
+                }
                 #tokens
             })
         }
