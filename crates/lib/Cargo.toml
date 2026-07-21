@@ -26,6 +26,11 @@ axum-extra = { version = "0.12", optional = true, features = ["cookie"] }
 http = { version = "1.4", optional = true }
 
 maud = { version = "0.27", optional = true }
+topcoat = { version = "0.3", optional = true, default-features = false, features = [
+  "cookie",
+  "router",
+  "view",
+] }
 
 thiserror = { workspace = true }
 
@@ -46,3 +51,4 @@ icu = ["dep:fluent-static-formatter"]
 
 axum = ["dep:axum-core", "dep:http", "dep:axum-extra", "dep:accept-language"]
 maud = ["dep:maud"]
+topcoat = ["dep:topcoat", "dep:http", "dep:accept-language"]
