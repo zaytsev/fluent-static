@@ -36,6 +36,8 @@ fluent-static-value = { workspace = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
+trybuild = { workspace = true }
+fluent-static-codegen = { workspace = true }
 
 [features]
 default = []

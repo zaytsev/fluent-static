@@ -223,6 +223,7 @@ dependencies = [
  "accept-language",
  "axum-core",
  "axum-extra",
+ "fluent-static-codegen",
  "fluent-static-formatter",
  "fluent-static-function",
  "fluent-static-macros",
@@ -233,6 +234,7 @@ dependencies = [
  "once_cell",
  "thiserror 2.0.18",
  "tokio",
+ "trybuild",
  "unic-langid",
 ]
 
@@ -241,7 +243,6 @@ name = "fluent-static-codegen"
 version = "0.6.2"
 dependencies = [
  "convert_case",
- "fluent-static",
  "fluent-static-function",
  "fluent-static-value",
  "fluent-syntax",
@@ -251,7 +252,6 @@ dependencies = [
  "quote",
  "syn",
  "thiserror 2.0.18",
- "trybuild",
  "unic-langid",
 ]
 
@@ -275,12 +275,10 @@ dependencies = [
 name = "fluent-static-macros"
 version = "0.1.2"
 dependencies = [
- "fluent-static",
  "fluent-static-codegen",
  "proc-macro2",
  "quote",
  "syn",
- "trybuild",
 ]
 
 [[package]]
