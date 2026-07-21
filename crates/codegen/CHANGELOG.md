@@ -3,6 +3,7 @@ All notable changes to this project will be documented in this file. See [conven
 
 - - -
 - - -
+
 ## fluent-static-codegen-v0.6.2 - 2026-07-04
 
 #### Bug Fixes

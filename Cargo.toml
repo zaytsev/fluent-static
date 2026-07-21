@@ -39,9 +39,9 @@ wax = { version = "0.7.0" }
 pretty_assertions = "1.4"
 trybuild = "1"
 
-fluent-static = { path = "crates/lib", version = "0.5.2" }
-fluent-static-codegen = { path = "crates/codegen", version = "0.6.2" }
-fluent-static-macros = { path = "crates/macros", version = "0.1.2" }
+fluent-static = { path = "crates/lib", version = "0.5.3" }
+fluent-static-codegen = { path = "crates/codegen", version = "0.6.3" }
+fluent-static-macros = { path = "crates/macros", version = "0.1.3" }
 fluent-static-value = { path = "crates/value", version = "0.1.1" }
 fluent-static-function = { path = "crates/function", version = "0.1.1" }
 fluent-static-formatter = { path = "crates/formatter", version = "0.1.1" }

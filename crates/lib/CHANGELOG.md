@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file. See [conven
 
 - - -
 - - -
+- - -
+## fluent-static-v0.5.3 - 2026-07-21
+
+#### Features
+- add support for Topcoat framework - (c40af6e)
+
 ## fluent-static-v0.5.2 - 2026-07-04
 
 #### Dependency updates
