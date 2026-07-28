@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file. See [conven
 - - -
 - - -
 - - -
+
 ## fluent-static-v0.5.3 - 2026-07-21
 
 #### Features
