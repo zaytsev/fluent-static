@@ -1,0 +1,9 @@
+[package]
+name = "topcoat-example"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+fluent-static = { workspace = true, features = ["topcoat"] }
+tokio = { version = "1.51", features = ["rt-multi-thread", "macros"] }
+topcoat = { version = "0.5", features = ["cookie", "router", "view"] }
