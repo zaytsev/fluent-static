@@ -288,7 +288,7 @@ pub mod topcoat {
         context::{try_app_context, Cx},
         cookie::{cookies, Cookies},
         router::headers,
-        view::{NodeViewParts, PartsWriter},
+        view::{AttributeValueViewParts, NodeViewParts, PartsWriter},
     };
 
     pub use super::http::{RequestLanguageConfig, RequestLanguageConfigBuilder};
@@ -296,6 +296,32 @@ pub mod topcoat {
     impl NodeViewParts for Message {
         fn into_view_parts(self, _: &Cx, parts: &mut PartsWriter<'_>) {
             parts.push_str(self.0);
+        }
+    }
+
+    impl NodeViewParts for &Message {
+        fn into_view_parts(self, _: &Cx, parts: &mut PartsWriter<'_>) {
+            parts.push_str(self.0.clone());
+        }
+    }
+
+    impl AttributeValueViewParts for Message {
+        fn attribute_present(&self) -> bool {
+            true
+        }
+
+        fn into_view_parts(self, _cx: &Cx, parts: &mut PartsWriter<'_>) {
+            parts.push_str(self.0);
+        }
+    }
+
+    impl AttributeValueViewParts for &Message {
+        fn attribute_present(&self) -> bool {
+            true
+        }
+
+        fn into_view_parts(self, _cx: &Cx, parts: &mut PartsWriter<'_>) {
+            parts.push_str(self.0.clone());
         }
     }
 
