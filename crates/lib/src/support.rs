@@ -287,7 +287,7 @@ pub mod topcoat {
     use topcoat::{
         context::{try_app_context, Cx},
         cookie::{cookies, Cookies},
-        router::headers,
+        router::request,
         view::{AttributeValueViewParts, NodeViewParts, PartsWriter},
     };
 
@@ -295,13 +295,13 @@ pub mod topcoat {
 
     impl NodeViewParts for Message {
         fn into_view_parts(self, _: &Cx, parts: &mut PartsWriter<'_>) {
-            parts.push_str(self.0);
+            parts.push_str(&self.0);
         }
     }
 
     impl NodeViewParts for &Message {
         fn into_view_parts(self, _: &Cx, parts: &mut PartsWriter<'_>) {
-            parts.push_str(self.0.clone());
+            parts.push_str(&self.0);
         }
     }
 
@@ -311,7 +311,7 @@ pub mod topcoat {
         }
 
         fn into_view_parts(self, _cx: &Cx, parts: &mut PartsWriter<'_>) {
-            parts.push_str(self.0);
+            parts.push_str(&self.0);
         }
     }
 
@@ -321,7 +321,7 @@ pub mod topcoat {
         }
 
         fn into_view_parts(self, _cx: &Cx, parts: &mut PartsWriter<'_>) {
-            parts.push_str(self.0.clone());
+            parts.push_str(&self.0);
         }
     }
 
@@ -344,7 +344,7 @@ pub mod topcoat {
         }
 
         let bundle = if !cfg.ignore_language_header() {
-            headers(cx)
+            request::headers(cx)
                 .get(ACCEPT_LANGUAGE)
                 .and_then(|v| v.to_str().ok())
                 .and_then(|value| {
@@ -363,14 +363,12 @@ pub mod topcoat {
 
     #[cfg(test)]
     mod tests {
-        use std::sync::Arc;
-
         use crate::LanguageAware;
 
         use super::*;
         use http::{header::ACCEPT_LANGUAGE, Request};
         use topcoat::{
-            context::{ContextMap, CxBuilder},
+            context::{Cx, CxTestBuilder},
             cookie::CookieJarCell,
         };
 
@@ -416,14 +414,18 @@ pub mod topcoat {
             parts: http::request::Parts,
             with_cookies: bool,
         ) -> Cx {
-            let mut app_context = ContextMap::new();
-            app_context.insert(config);
-
-            let mut cx_builder = CxBuilder::new(Arc::new(app_context));
-            cx_builder.insert(parts);
-            if with_cookies {
-                cx_builder.insert(CookieJarCell::new());
-            }
+            let cx_builder = CxTestBuilder::new()
+                .app_context(config)
+                .request_context(parts);
+            let cx_builder = if with_cookies {
+                cx_builder.request_context(CookieJarCell::new())
+            } else {
+                cx_builder
+            };
+            // cx_builder.insert(parts);
+            // if with_cookies {
+            //     cx_builder.insert(CookieJarCell::new());
+            // }
             cx_builder.build()
         }
 
