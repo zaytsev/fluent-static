@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file. See [conven
 - - -
 
 - - -
+- - -
+## fluent-static-v0.6.0 - 2026-08-18
+
+#### Features
+- **(support)** migrate to topcoat 0.6 - (d7dada2)
+
 ## fluent-static-v0.5.5 - 2026-08-10
 
 #### Features
