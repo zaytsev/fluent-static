@@ -191,7 +191,7 @@ pub struct InvalidUnitIdentifierError(String);
 
 macro_rules! generate_unit_identifier {
     ($($raw_id:ident),*) => {
-        ::paste::paste! {
+        ::pastey::paste! {
             #[derive(Debug, Clone, PartialEq, Eq, Hash)]
             pub enum UnitIdentifier {
                 Derived(Box<UnitIdentifier>, Box<UnitIdentifier>),
